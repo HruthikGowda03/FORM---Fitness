@@ -18,10 +18,44 @@ import {
   type MealPlan,
   type Profile,
   type ProgressEntry,
+  type ThemePref,
 } from '@/types'
 
 export const STORAGE_KEY = `form.state.v${STATE_VERSION}`
 export const ONBOARDING_KEY = 'form.onboarding.draft'
+
+/*
+  Theme lives here, in its own key, rather than inside the nutrition profile.
+
+  It used to be `Profile.theme`, which meant it only existed once someone had
+  finished onboarding — so the toggle did nothing on the landing page, on the
+  profile gate and through the whole wizard, with no error to explain why. A
+  preference about how the screen looks is a property of the device, not of one
+  person's nutrition data, and it has to be settable before there is a profile
+  to attach it to.
+*/
+export const THEME_KEY = 'form.theme'
+
+export function loadThemePref(): ThemePref | null {
+  const s = storage()
+  if (!s) return null
+  try {
+    const raw = s.getItem(THEME_KEY)
+    return raw === 'dark' || raw === 'light' || raw === 'system' ? raw : null
+  } catch {
+    return null
+  }
+}
+
+export function saveThemePref(pref: ThemePref): void {
+  const s = storage()
+  if (!s) return
+  try {
+    s.setItem(THEME_KEY, pref)
+  } catch {
+    /* ignore */
+  }
+}
 
 function isObject(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v)

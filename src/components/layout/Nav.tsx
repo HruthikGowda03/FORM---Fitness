@@ -11,7 +11,7 @@ import { preloadRoute, PROFILES_PATH } from '@/lib/routes'
 import { useScrollLock } from '@/lib/hooks'
 import { EASE } from '@/lib/motion'
 import { useActions, useProfile } from '@/store/AppStore'
-import { useTheme } from '@/components/layout/ThemeProvider'
+import { useTheme, useThemeControls } from '@/components/layout/ThemeProvider'
 
 export const NAV_LINKS = [
   { to: '/dashboard', label: 'Dashboard' },
@@ -24,15 +24,14 @@ export const NAV_LINKS = [
 
 function ThemeToggle() {
   const { theme } = useTheme()
-  const profile = useProfile()?.profile
-  const { setProfile } = useActions()
+  const { setTheme } = useThemeControls()
 
   const next = theme === 'dark' ? 'light' : 'dark'
 
   return (
     <button
       type="button"
-      onClick={() => setProfile({ theme: next })}
+      onClick={() => setTheme(next)}
       className="press group inline-flex size-10 items-center justify-center border border-line text-muted hover:border-accent/50 hover:bg-accent-soft hover:text-accent focus-visible:outline-2 focus-visible:outline-accent"
       aria-label={`Switch to ${next} mode`}
       title={`Switch to ${next} mode`}
@@ -63,7 +62,6 @@ function ThemeToggle() {
           <Sun className="size-4" />
         </motion.span>
       </span>
-      <span className="sr-only">{profile ? '' : 'Theme'}</span>
     </button>
   )
 }

@@ -192,10 +192,55 @@ Import validates and refuses mismatched versions rather than half-applying them.
 A v3 single-profile state migrates transparently into a v4 profile, so existing
 users keep their history.
 
+The theme is the one thing deliberately kept **out** of that key, in its own
+`form.theme` entry — see the theme note below.
+
 ## Styling
 
 Tailwind v4, configured entirely through CSS custom properties in
 `src/index.css`. There is no JavaScript config and no `tailwind.config.js`.
+
+### Theme
+
+The light/dark toggle writes to its own `localStorage` key, `form.theme` — not
+into `Profile.theme`, where it used to live.
+
+That relocation *is* the fix for a toggle that appeared dead. `Profile.theme`
+only exists once someone has finished onboarding, and the `data/setProfile`
+reducer returns the profile untouched when there is no nutrition profile yet. So
+on the landing page, on the profile gate and through the whole wizard the click
+was accepted, nothing was stored, and the screen looked identical — with no
+error to explain it. A preference about how the screen looks belongs to the
+device, not to one person's nutrition data, and it has to be settable before
+there is a profile to attach it to.
+
+Existing users who had already chosen light keep it: on first load a
+non-default `Profile.theme` is copied into the new key once, and after that the
+new key wins. Only a non-default value is adopted — `dark` is what a fresh
+profile already carries, so importing it would be indistinguishable from doing
+nothing.
+
+Worth knowing: a theme is no longer part of an exported backup. It describes the
+screen rather than the data, so restoring a backup on a new device gets that
+device's own theme.
+
+### Numeric inputs
+
+`NumberField` holds **text** while it is being edited and commits a number
+upward, rather than driving the input straight from a numeric prop.
+
+Driving it from the prop meant the empty string could not survive. Deleting the
+last digit reported `undefined`, the parent kept the old number, and the
+controlled value snapped straight back — so a pre-filled field (170 cm, 65 kg)
+could be reduced to a single digit but never emptied, and "clear it and type my
+own" was impossible. Holding text also stops a half-typed value being rewritten
+under the caret: `1` stays `1` on the way to `185`, instead of being clamped to
+some in-range number the field never asked for.
+
+`min`/`max` stay on the element, because they are what give the spinner and
+assistive tech the true range. They are **not** enforced while typing. Range is
+checked on submit by the step's own validator, which reports "Enter your height"
+for an emptied field rather than pretending the pre-filled default was answered.
 
 **One rule matters more than the rest: the semantic palette must live inside
 `@theme`.** Tailwind only generates `bg-*` / `text-*` / `border-*` utilities

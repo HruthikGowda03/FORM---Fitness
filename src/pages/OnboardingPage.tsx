@@ -93,7 +93,18 @@ const MINOR_STEPS: StepId[] = ['about', 'body', 'activity', 'goal', 'food', 'kit
 
 type Errors = Partial<Record<string, string>>
 
-function validateStep(id: StepId, p: Profile, minor: boolean): Errors {
+/**
+ * Which required numeric fields the user has emptied.
+ *
+ * Height and weight are pre-filled, so the draft always holds a plausible
+ * number. When the field is cleared there is no longer a number to store, and
+ * `Profile.heightCm` is a required `number` — so the last good value stays put
+ * and validation would read it as answered. Tracking the empty state separately
+ * is what stops a cleared field from silently submitting 170 cm.
+ */
+type Blank = Partial<Record<'heightCm' | 'weightKg', boolean>>
+
+function validateStep(id: StepId, p: Profile, minor: boolean, blank: Blank = {}): Errors {
   const e: Errors = {}
 
   if (id === 'about') {
@@ -105,10 +116,16 @@ function validateStep(id: StepId, p: Profile, minor: boolean): Errors {
   }
 
   if (id === 'body') {
-    if (!Number.isFinite(p.heightCm) || p.heightCm < 120 || p.heightCm > 230) {
+    // Emptied reads as missing, ahead of the range check — "enter a height" is
+    // the useful message when the box is empty, not "between 120 and 230".
+    if (blank.heightCm) {
+      e.heightCm = 'Enter your height.'
+    } else if (!Number.isFinite(p.heightCm) || p.heightCm < 120 || p.heightCm > 230) {
       e.heightCm = 'Enter a height between 120 and 230 cm.'
     }
-    if (!Number.isFinite(p.weightKg) || p.weightKg < 25 || p.weightKg > 300) {
+    if (blank.weightKg) {
+      e.weightKg = 'Enter your weight.'
+    } else if (!Number.isFinite(p.weightKg) || p.weightKg < 25 || p.weightKg > 300) {
       e.weightKg = 'Enter a weight between 25 and 300 kg.'
     }
     if (p.waistCm !== undefined && (p.waistCm < 30 || p.waistCm > 200)) {
@@ -163,6 +180,7 @@ export function OnboardingPage() {
   })
   const [stepIndex, setStepIndex] = useState(0)
   const [errors, setErrors] = useState<Errors>({})
+  const [blank, setBlank] = useState<Blank>({})
   const [direction, setDirection] = useState<1 | -1>(1)
 
   const minor = !draft.isAdult
@@ -200,7 +218,7 @@ export function OnboardingPage() {
   }, [])
 
   const goNext = useCallback(() => {
-    const found = validateStep(step.id, draft, minor)
+    const found = validateStep(step.id, draft, minor, blank)
     setErrors(found)
 
     if (Object.keys(found).length > 0) {
@@ -222,7 +240,19 @@ export function OnboardingPage() {
 
     setDirection(1)
     setStepIndex((i) => Math.min(i + 1, steps.length - 1))
-  }, [step.id, draft, minor, isLast, steps.length, completeOnboarding, navigate, location.state])
+  }, [
+    step.id,
+    draft,
+    minor,
+    // Without this the callback closes over the initial empty `{}` and a
+    // cleared height or weight validates as though it were still filled in.
+    blank,
+    isLast,
+    steps.length,
+    completeOnboarding,
+    navigate,
+    location.state,
+  ])
 
   const goBack = useCallback(() => {
     setErrors({})
@@ -351,6 +381,7 @@ export function OnboardingPage() {
                   errors={errors}
                   setErrors={setErrors}
                   minor={minor}
+                  setBlank={setBlank}
                 />
               </motion.div>
             </AnimatePresence>
@@ -428,6 +459,8 @@ type StepProps = {
   errors: Errors
   setErrors: (e: Errors) => void
   minor: boolean
+  /** Records that a required number field has been emptied, so it is not read as answered. */
+  setBlank: React.Dispatch<React.SetStateAction<Blank>>
 }
 
 function StepBody(props: StepProps) {
@@ -549,7 +582,7 @@ function UnitToggle({
 
 /* ----------------------------------- body --------------------------------- */
 
-function BodyStep({ draft, set, errors }: StepProps) {
+function BodyStep({ draft, set, errors, setBlank }: StepProps) {
   const [heightMode, setHeightMode] = useState<WeightSystem>(draft.units)
   const [weightMode, setWeightMode] = useState<WeightSystem>(draft.units)
 
@@ -627,7 +660,17 @@ function BodyStep({ draft, set, errors }: StepProps) {
           <NumberField
             label="Height"
             value={Math.round(draft.heightCm)}
-            onChange={(v) => v !== undefined && set('heightCm', v)}
+            onChange={(v) => {
+              /*
+                `v !== undefined &&` used to guard this, which is precisely why
+                the field could never be emptied: the empty value was discarded
+                and the pre-filled 170 stayed in the draft. Emptiness is now
+                recorded so the step's validator reports it instead of quietly
+                submitting the default.
+              */
+              setBlank((b) => ({ ...b, heightCm: v === undefined }))
+              if (v !== undefined) set('heightCm', v)
+            }}
             unit="cm"
             min={120}
             max={230}
@@ -670,12 +713,17 @@ function BodyStep({ draft, set, errors }: StepProps) {
                 = {formatNumber(draft.heightCm)} cm
               </span>
             </div>
+            {/*
+              Only for ft / in. In cm there is a single field, and `NumberField`
+              already renders the error beneath it — showing it here as well
+              printed every height message twice.
+            */}
+            {errors.heightCm && (
+              <p role="alert" className="text-sm text-danger sm:col-span-3">
+                {errors.heightCm}
+              </p>
+            )}
           </div>
-        )}
-        {errors.heightCm && (
-          <p role="alert" className="text-sm text-danger">
-            {errors.heightCm}
-          </p>
         )}
       </div>
 
@@ -688,7 +736,14 @@ function BodyStep({ draft, set, errors }: StepProps) {
         <NumberField
           label="Current weight"
           value={Number.isFinite(displayWeight) ? Math.round(displayWeight * 10) / 10 : undefined}
-          onChange={(v) => v !== undefined && set('weightKg', toKg(v, weightMode === 'metric' ? 'kg' : 'lb'))}
+          onChange={(v) => {
+            // Same reason as height: the empty value has to be recorded, not
+            // dropped, or clearing the box submits 65 kg without saying so.
+            setBlank((b) => ({ ...b, weightKg: v === undefined }))
+            if (v !== undefined) {
+              set('weightKg', toKg(v, weightMode === 'metric' ? 'kg' : 'lb'))
+            }
+          }}
           unit={weightMode === 'metric' ? 'kg' : 'lb'}
           min={25}
           max={300}

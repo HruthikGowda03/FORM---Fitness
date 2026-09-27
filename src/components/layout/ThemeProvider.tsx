@@ -20,6 +20,7 @@ import {
 } from 'react'
 
 import { useActions, useProfile } from '@/store/AppStore'
+import { loadThemePref, saveThemePref } from '@/lib/storage'
 import type { MotionPref, ThemePref } from '@/types'
 
 type Resolved = {
@@ -60,10 +61,38 @@ export function resolveMotion(pref: MotionPref): 'reduce' | 'full' {
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const profile = useProfile()?.profile
   const { setProfile } = useActions()
-  // Used so the "no profile" gate still gets the motion preference applied.
 
   const [sysDark, setSysDark] = useState(systemDark)
   const [sysReduced, setSysReduced] = useState(systemReduced)
+
+  /*
+    The chosen theme is device state, not nutrition data.
+
+    It used to live in `Profile.theme`, and `data/setProfile` returns the profile
+    untouched when there is no nutrition profile yet — so the toggle was a
+    silent no-op on the landing page, on the profile gate, and through the whole
+    wizard. Storing it here means it works before, during and after onboarding,
+    and persists across a refresh on its own.
+  */
+  const [themePref, setThemePref] = useState<ThemePref>(() => loadThemePref() ?? 'dark')
+
+  /*
+    One-time rescue for anyone who had already chosen light via the old
+    per-profile setting, so the fix does not quietly reset their screen.
+
+    Only a non-default value is adopted: `dark` is what a fresh profile already
+    carries, and adopting that would be indistinguishable from doing nothing —
+    whereas importing `system` from a default profile would flip the theme on
+    someone who never asked for it.
+  */
+  useEffect(() => {
+    if (loadThemePref() !== null) return
+    const previous = profile?.theme
+    if (previous && previous !== 'dark') {
+      setThemePref(previous)
+      saveThemePref(previous)
+    }
+  }, [profile?.theme])
 
   // Track OS changes so `system` stays correct without a reload.
   useEffect(() => {
@@ -82,7 +111,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  const pref: ThemePref = profile?.theme ?? 'dark'
+  const pref: ThemePref = themePref
   const motionPref: MotionPref = profile?.motion ?? 'auto'
 
   const theme = useMemo(() => {
@@ -108,13 +137,15 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     document.documentElement.dataset.motion = motion
   }, [motion])
 
-  const setTheme = useCallback(
-    (next: ThemePref) => {
-      if (!profile) return
-      setProfile({ theme: next })
-    },
-    [profile, setProfile],
-  )
+  /*
+    Deliberately not routed through `setProfile` any more. That path is a no-op
+    until onboarding completes, which is what made the toggle look broken; the
+    preference is saved on its own so it applies everywhere.
+  */
+  const setTheme = useCallback((next: ThemePref) => {
+    setThemePref(next)
+    saveThemePref(next)
+  }, [])
 
   const setMotion = useCallback(
     (next: MotionPref) => {

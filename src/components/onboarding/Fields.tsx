@@ -5,7 +5,7 @@
    ========================================================================== */
 
 import { Info } from 'lucide-react'
-import { useId, type ReactNode } from 'react'
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 
 import { OptionCard } from '@/components/ui/option-card'
 import { Input } from '@/components/ui/input'
@@ -123,6 +123,9 @@ export function OptionGroup<T extends string>({
    Numeric input with a unit suffix
    -------------------------------------------------------------------------- */
 
+/** The text an input should show for a numeric prop. */
+const asText = (n: number | undefined) => (n === undefined ? '' : String(n))
+
 export function NumberField({
   label,
   hint,
@@ -159,6 +162,40 @@ export function NumberField({
   const fieldId = id ?? autoId
   const descId = hint || error ? `${fieldId}-desc` : undefined
 
+  /*
+    The field holds TEXT while it is being edited, and commits a number upward.
+
+    Driving the input straight from `value` meant the empty string could not
+    survive: deleting the last digit reported `undefined`, the parent kept the
+    old number, and the controlled value snapped straight back. The field was
+    impossible to clear, so the ordinary "clear it and type my own" could not
+    happen — and the fields are pre-filled (170 cm, 65 kg), so clearing is
+    exactly what a first-time user reaches for.
+
+    Holding text also means a half-typed value is never rewritten out from under
+    the caret: `1` stays `1` on the way to `185`, instead of being clamped to
+    some in-range number the field did not ask for. Range is validated on submit
+    by the step's own validator, not by fighting the keystroke.
+
+    `min`/`max` stay on the element, because they are what give the spinner and
+    assistive tech the true range. They are not enforced while typing.
+  */
+  const [text, setText] = useState(() => asText(value))
+  const focused = useRef(false)
+
+  /*
+    Adopt a value that changed from outside — a unit switch converting kg to lb,
+    a restored draft — but never while the user is mid-keystroke, or typing
+    "1" on the way to "185" would be overwritten by the parent each time.
+  */
+  useEffect(() => {
+    if (focused.current) return
+    const next = asText(value)
+    setText((prev) => (Number(prev) === Number(next) ? prev : next))
+    // `asText` is a fresh closure each render; `value` is the real dependency.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value])
+
   return (
     <Field label={label} hint={hint} error={error} htmlFor={fieldId} optional={optional}>
       <div className="flex items-stretch gap-2">
@@ -167,16 +204,25 @@ export function NumberField({
             id={fieldId}
             type="number"
             inputMode={inputMode}
-            value={value ?? ''}
+            value={text}
             min={min}
             max={max}
             step={step}
             placeholder={placeholder}
             aria-invalid={error ? true : undefined}
             aria-describedby={descId}
+            onFocus={() => {
+              focused.current = true
+            }}
+            onBlur={() => {
+              focused.current = false
+            }}
             onChange={(e) => {
               const raw = e.target.value
-              onChange(raw === '' ? undefined : Number(raw))
+              setText(raw)
+              // `Number('')` is 0, so an empty field has to be caught first or
+              // clearing the box would silently commit a zero.
+              onChange(raw.trim() === '' ? undefined : Number(raw))
             }}
             className="num pr-14"
           />
