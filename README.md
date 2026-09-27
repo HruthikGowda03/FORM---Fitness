@@ -98,13 +98,59 @@ problem a login would have solved here, honestly.
 An **optional 4–12 digit PIN** can lock a profile so a housemate cannot open it
 casually. It is salted and SHA-256 hashed, and it is not security: anyone with
 devtools on that device can read the data. The UI says this in plain language
-wherever a PIN is set, and on the unlock screen there is an explicit
-"I am not [name] — remove this profile" path, because forgotten PINs are
+wherever a PIN is set, and on the sign-in screen there is an explicit
+"Forgotten the PIN?" path that can remove a profile, because forgotten PINs are
 otherwise unrecoverable.
 
 If real accounts are ever wanted, that needs a backend, password hashing, a
 session model, recovery, and probably a privacy review. It is a genuine project
 in itself, not a form.
+
+#### Signing in, and why a PIN is now required
+
+The first version asked for a name and made the PIN optional. That was a design
+error with a quiet consequence: most profiles ended up with no PIN, so there was
+nothing to "come back" to, and the name existed only to tell two people apart in
+a list. On a shared laptop, whoever opened the app first got everyone else's
+plan.
+
+`/profiles` is now one screen with two states:
+
+| state | shows | asks for |
+| --- | --- | --- |
+| no profiles on this device | **Create your profile** | name, PIN, confirm PIN, colour |
+| profiles exist, none open | **Welcome back** | name, PIN |
+
+A PIN is part of creating a profile, so the returning visit has something to
+verify and the name is a real identifier. Signing in resolves a typed name to
+exactly one profile, so **duplicate names are refused** — two profiles called
+"Sam" would make the form ambiguous and the second unreachable by name. Matching
+ignores case and surrounding space, because someone who saw "Priya" on a tile and
+typed "priya" must not be told their PIN is wrong.
+
+The whole thing is one `login(name, pin)` action rather than three steps the UI
+could get wrong: "found the profile but the PIN was wrong" must never leave a
+profile half-selected.
+
+**Profiles created before this change have no `pinHash` and still work.** They
+open without a PIN, and are labelled *"No PIN — opens straight away"* rather than
+shown with a lock they do not have. Restoring an old backup must not lock anyone
+out of their own data with no way in.
+
+Nothing here claims to be an account. The screen says *"This is a local profile,
+not an online account"* and spells out the consequences: stored in this browser,
+nothing uploaded, no sync, no password reset, and a different browser or address
+shows no profiles at all.
+
+**Logging out and switching profile are the same action** — close the open
+profile, return to the sign-in screen — so Settings → Profiles has one control
+that names both, rather than two that do an identical thing. Restoring a backup
+also signs you out, because the bundle carries whichever profile was open when it
+was made and honouring that would drop the person restoring it straight into
+someone else's plan without the PIN.
+
+`src/test/auth-flow.test.tsx` drives the whole thing — create → log out → sign
+back in — through the real store, real `localStorage` and the real component.
 
 #### First-run order: profile first, then the nine questions
 
@@ -350,7 +396,9 @@ This is an educational prototype, not medical advice.
   `LogMealDialog` are reimplemented in FORM's own palette rather than copied.
 - **No backend, deliberately.** That means no cross-device sync, no cloud
   backup, and no sharing between devices. Use the JSON export in Settings.
-- **The PIN is a speed bump, not security.** See the profiles section above.
+- **The PIN is a speed bump, not security.** It is required when creating a
+   profile, but anyone with devtools on the device can read the data past it.
+   See the profiles section above.
 - **Profiles live on one device.** There is no sync, so a plan made on a phone
   is not available on a laptop.
 

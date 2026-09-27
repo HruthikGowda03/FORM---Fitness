@@ -21,7 +21,8 @@ import {
 import { bmi, bmiBand, computePlanTargets, evaluateSafety } from '@/lib/nutrition'
 import { generateMealPlan, toISODate } from '@/lib/meal-plan'
 import { buildGroceryList, type PriceOverrides } from '@/lib/prices'
-import { hashPin, verifyPin } from '@/lib/pin'
+import { hashPin, isValidPin, verifyPin } from '@/lib/pin'
+import { findByName, type LoginResult } from '@/lib/auth'
 import {
   clearOnboardingDraft,
   emptyState,
@@ -516,6 +517,13 @@ export type AppActions = {
     pin?: string
     avatarIndex: number
   }) => Promise<string>
+  /**
+   * The returning-user path: resolve a typed name to a profile, check the PIN,
+   * and open it. One action rather than three, because the intermediate steps
+   * are not decisions the UI should be making — and because "found the profile
+   * but the PIN was wrong" must not leave the profile half-selected.
+   */
+  login: (name: string, pin: string) => Promise<LoginResult>
   selectProfile: (id: string) => Promise<boolean>
   unlockProfile: (id: string, pin: string) => Promise<boolean>
   renameProfile: (id: string, name: string) => void
@@ -611,6 +619,32 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
         // The new profile's id, so the caller can route onward to the wizard
         // rather than inferring it from a re-render.
         return draft.id
+      },
+
+      login: async (name, pin) => {
+        const target = findByName(state.profiles, name)
+        if (!target) return { ok: false, reason: 'unknown-name' }
+
+        /*
+          Profiles created before the PIN became mandatory have no `pinHash`.
+          They still have to be reachable, or restoring an old backup would lock
+          someone out of their own data with no way in. `verifyPin` treats null
+          as "no lock", so they open on any input — `unpinned` is how the UI
+          says so plainly instead of quietly pretending a PIN was checked.
+        */
+        const unpinned = target.pinHash === null
+        if (!unpinned && !isValidPin(pin)) return { ok: false, reason: 'pin-format' }
+
+        const ok = await verifyPin(pin, target.pinHash)
+        if (!ok) return { ok: false, reason: 'wrong-pin' }
+
+        dispatch({ type: 'profile/select', id: target.id })
+        return {
+          ok: true,
+          id: target.id,
+          needsOnboarding: !target.onboardingComplete,
+          unpinned,
+        }
       },
 
       selectProfile: async (id) => {

@@ -8,6 +8,7 @@ import {
   Accessibility,
   Database,
   Download,
+  LogOut,
   KeyRound,
   Monitor,
   Moon,
@@ -21,7 +22,7 @@ import {
   Users,
 } from 'lucide-react'
 import { useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 
 import { useTheme, useThemeControls } from '@/components/layout/ThemeProvider'
 import { Eyebrow, PageLead, PageShell, PageTitle, Rule } from '@/components/layout/Page'
@@ -54,6 +55,7 @@ import {
   fromImportBundle,
   toExportBundle,
 } from '@/lib/storage'
+import { PROFILES_PATH } from '@/lib/routes'
 import { PIN_DISCLOSURE, PIN_MAX, PIN_MIN, isValidPin } from '@/lib/pin'
 import { AVATAR_COLOURS } from '@/components/auth/ProfileGate'
 import { useActions, useAppState, useProfile } from '@/store/AppStore'
@@ -89,8 +91,10 @@ export function SettingsPage() {
     renameProfile,
     setPin,
     removeProfile,
+    closeProfile,
   } = useActions()
   const { systemPrefersReducedMotion } = useTheme()
+  const navigate = useNavigate()
   const { setMotion: setMotionPref } = useThemeControls()
   const fileRef = useRef<HTMLInputElement>(null)
   const [importError, setImportError] = useState('')
@@ -113,6 +117,17 @@ export function SettingsPage() {
   }
 
   /* ---------------- import ---------------- */
+  /**
+   * Close the open profile and return to the sign-in screen.
+   *
+   * `closeProfile` sets the "logged out" sentinel rather than removing anything,
+   * so no data is touched and signing back in restores the same plan.
+   */
+  const signOut = () => {
+    closeProfile()
+    navigate(PROFILES_PATH, { replace: true })
+  }
+
   const handleImport = async (file: File) => {
     setImportError('')
     setImportOk('')
@@ -130,8 +145,15 @@ export function SettingsPage() {
         return
       }
       replaceState(next)
-      setImportOk('Backup restored. Reloading…')
-      window.setTimeout(() => window.location.reload(), 600)
+      /*
+        Sign out after restoring. The bundle carries whichever profile was open
+        when it was made, and honouring that would drop whoever restores a
+        backup straight into someone else's plan without the PIN. Closing the
+        profile costs one sign-in and keeps the lock meaningful.
+      */
+      closeProfile()
+      setImportOk('Backup restored. Sign in to continue.')
+      window.setTimeout(() => navigate(PROFILES_PATH, { replace: true }), 900)
     } catch (err) {
       setImportError(err instanceof Error ? err.message : 'That file could not be read.')
     }
@@ -162,6 +184,7 @@ export function SettingsPage() {
             onRename={renameProfile}
             onSetPin={setPin}
             onRemove={removeProfile}
+            onSignOut={signOut}
           />
         </TabsContent>
 
@@ -843,11 +866,13 @@ function ProfilesPanel({
   onRename,
   onSetPin,
   onRemove,
+  onSignOut,
 }: {
   active: LocalProfile | null
   onRename: (id: string, name: string) => void
   onSetPin: (id: string, pin: string | null) => Promise<void>
   onRemove: (id: string) => void
+  onSignOut: () => void
 }) {
   const { profiles } = useAppState()
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -855,6 +880,9 @@ function ProfilesPanel({
   const [pinFor, setPinFor] = useState<string | null>(null)
   const [pin, setPin] = useState('')
   const [error, setError] = useState('')
+
+  /* Name the other person, so the control says who you would be switching to. */
+  const switchTo = profiles.find((p) => p.id !== active?.id)?.name
 
   const savePin = async () => {
     if (!pinFor) return
@@ -993,6 +1021,29 @@ function ProfilesPanel({
               )
             })}
           </ul>
+
+          {/*
+            Signing out and switching profile are the same underlying action —
+            close the open profile, land on the sign-in screen — so they are one
+            control here rather than two that do an identical thing. The copy
+            names both, because "log out" is the word people look for and
+            "switch profile" is the situation they are actually in.
+          */}
+          {active && (
+            <div className="mt-5 border-t border-line pt-5">
+              <p className="text-sm leading-relaxed text-muted">
+                <strong className="text-ink">{active.name || 'This profile'}</strong> is open on
+                this device. Signing out closes it and returns to the sign-in screen, where you can
+                open {profiles.length > 1 ? 'anyone' : 'it'} again with the name and PIN.
+              </p>
+              <div className="mt-4 flex flex-wrap gap-3">
+                <Button variant="secondary" onClick={() => onSignOut()}>
+                  <LogOut className="size-4" />
+                  Log out{switchTo ? ` / switch to ${switchTo}` : ''}
+                </Button>
+              </div>
+            </div>
+          )}
 
           <div className="mt-5">
             <Callout tone="muted">
