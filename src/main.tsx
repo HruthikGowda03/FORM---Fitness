@@ -6,6 +6,7 @@ import { MotionConfig } from 'motion/react'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
+import { Analytics } from '@vercel/analytics/react'
 
 import { App } from '@/App'
 import { ThemeProvider, useTheme } from '@/components/layout/ThemeProvider'
@@ -43,5 +44,6 @@ createRoot(container).render(
         </ThemeProvider>
       </AppStoreProvider>
     </BrowserRouter>
+    <Analytics />
   </StrictMode>,
 )
