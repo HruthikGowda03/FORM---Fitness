@@ -1,0 +1,611 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ==========================================================================
+   FORM — design tokens
+   Premium fitness-tech / editorial / athletic. Dark-first, light supported.
+   Semantic tokens are swapped wholesale per theme, so every utility
+   (bg-surface, text-muted, border-line …) re-themes without extra classes.
+   ========================================================================== */
+
+@theme {
+  /* Brand — fixed, identical in both themes */
+  --color-lime: #c8ff3d;
+  --color-lime-bright: #dcff7a;
+  --color-lime-deep: #9bd414;
+
+  /* Typography */
+  --font-display: 'Archivo', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Motion */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out-quint: cubic-bezier(0.83, 0, 0.17, 1);
+
+  /*
+    Interaction durations. Named so the hover vocabulary below cannot drift
+    apart from the motion-driven components: one 200ms, one 320ms, one 80ms.
+  */
+  --t-instant: 80ms;
+  --t-fast: 200ms;
+  --t-base: 320ms;
+
+  /* Breakpoints for container queries */
+  --container-app: 84rem;
+
+  /* Button sheen — decorative, hover-driven, disabled under reduced motion */
+  --animate-shimmer: form-shimmer 900ms var(--ease-out-expo);
+
+  /* --------------------------------------------------------------------
+     Semantic palette — DARK, the default.
+
+     These MUST live in `@theme`, not in a plain `:root` rule. Tailwind only
+     generates `bg-*` / `text-*` / `border-*` utilities from tokens it finds in
+     `@theme`; a custom property declared in ordinary CSS is invisible to the
+     utility generator. When these were in a `:root { … }` block instead,
+     every colour class in the app — `bg-surface`, `text-muted`,
+     `border-line`, `bg-accent` — silently compiled to nothing. The app
+     rendered with no surfaces, no borders and inherited text colour, which
+     is what made it look like a blank page.
+
+     `@theme` emits these into `:root`, so they are also the runtime default.
+     The light palette below overrides them per class; nothing needs to
+     redeclare dark.
+     -------------------------------------------------------------------- */
+  --color-bg: #0b0d0c;
+  --color-bg-sunken: #070807;
+  --color-surface: #171a18;
+  --color-surface-raised: #1f2320;
+  --color-surface-inset: #101311;
+
+  --color-line: #262b27;
+  --color-line-strong: #39413a;
+  --color-line-soft: #1b1f1c;
+
+  --color-ink: #f5f5f0;
+  --color-ink-inverse: #0b0d0c;
+  --color-muted: #9aa39b;
+  --color-faint: #838b84;
+
+  --color-accent: #c8ff3d;
+  --color-accent-contrast: #0b0d0c;
+  --color-accent-soft: #c8ff3d26;
+
+  --color-info: #7cc4ff;
+  --color-warn: #ffc46b;
+  --color-danger: #ff7a6b;
+  --color-ok: #7ee0a8;
+
+  --shadow-card: 0 1px 0 0 #ffffff0a inset, 0 18px 40px -28px #00000099;
+  --color-grid-line: #ffffff12;
+}
+
+/* ---------- Light ----------
+   Overrides the tokens above. `.light` sits in the unlayered cascade, which
+   outranks the `@theme` `:root` output, so this wins without `!important`.
+   ThemeProvider puts exactly one of `dark` / `light` on <html>. */
+.light {
+  --color-bg: #f7f7f3;
+  --color-bg-sunken: #eeeee8;
+  --color-surface: #ffffff;
+  --color-surface-raised: #ffffff;
+  --color-surface-inset: #f1f2ec;
+
+  --color-line: #dcded4;
+  --color-line-strong: #b9bdb0;
+  --color-line-soft: #e8eae1;
+
+  --color-ink: #10130f;
+  --color-ink-inverse: #f7f7f3;
+  --color-muted: #5b635b;
+  --color-faint: #666e66;
+
+  --color-accent: #6f9e00;
+  --color-accent-contrast: #ffffff;
+  --color-accent-soft: #6f9e001f;
+
+  --color-info: #1b6fa8;
+  --color-warn: #8a5a00;
+  --color-danger: #b4301f;
+  --color-ok: #1d7a45;
+
+  --shadow-card: 0 1px 2px 0 #10130f0f, 0 12px 28px -22px #10130f40;
+  --color-grid-line: #10130f12;
+}
+
+/* Typography scale: oversized, condensed, athletic */
+@theme {
+  --text-display-xl: clamp(2.75rem, 9vw, 7.5rem);
+  --text-display-xl--line-height: 0.86;
+  --text-display-xl--letter-spacing: -0.035em;
+
+  --text-display-lg: clamp(2.25rem, 6vw, 4.5rem);
+  --text-display-lg--line-height: 0.9;
+  --text-display-lg--letter-spacing: -0.03em;
+
+  --text-display-md: clamp(1.75rem, 3.6vw, 2.75rem);
+  --text-display-md--line-height: 0.98;
+  --text-display-md--letter-spacing: -0.02em;
+
+  --text-eyebrow: 0.6875rem;
+  --text-eyebrow--line-height: 1;
+  --text-eyebrow--letter-spacing: 0.18em;
+}
+
+/* Condensed athletic display face, used for numerals + headlines */
+@utility display-face {
+  font-family: var(--font-display);
+  font-stretch: 87.5%;
+  font-weight: 800;
+  font-variation-settings: 'wdth' 87.5;
+  letter-spacing: -0.02em;
+}
+
+@utility eyebrow {
+  font-family: var(--font-mono);
+  font-size: var(--text-eyebrow);
+  line-height: 1;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-weight: 500;
+}
+
+@utility num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
+}
+
+/* ==========================================================================
+   base
+   ========================================================================== */
+
+@layer base {
+  * {
+    border-color: var(--color-line);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+    scroll-padding-top: 5.5rem;
+  }
+
+  body {
+    background-color: var(--color-bg);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-synthesis-weight: none;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    overflow-x: clip;
+  }
+
+  #root {
+    isolation: isolate;
+  }
+
+  ::selection {
+    background-color: var(--color-accent);
+    color: var(--color-accent-contrast);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+    font-stretch: 87.5%;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+  }
+
+  /* Native controls should not fight the theme */
+  input,
+  select,
+  textarea,
+  button {
+    font: inherit;
+    color: inherit;
+  }
+
+  input[type='number']::-webkit-outer-spin-button,
+  input[type='number']::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type='number'] {
+    -moz-appearance: textfield;
+  }
+
+  [hidden] {
+    display: none !important;
+  }
+}
+
+/* ==========================================================================
+   utilities
+   ========================================================================== */
+
+@utility hairline {
+  border: 1px solid var(--color-line);
+}
+
+/* Subtle athletic grid — original SVG-free CSS, used behind hero/sections */
+@utility bg-grid {
+  background-image: linear-gradient(to right, var(--color-grid-line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--color-grid-line) 1px, transparent 1px);
+  background-size: 72px 72px;
+}
+
+@utility bg-dots {
+  background-image: radial-gradient(var(--color-grid-line) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+
+/* Radial lime bloom, used sparingly for depth */
+@utility bloom-lime {
+  background-image: radial-gradient(
+    60% 55% at 50% 0%,
+    color-mix(in oklab, var(--color-accent) 22%, transparent) 0%,
+    transparent 72%
+  );
+}
+
+@utility bloom-deep {
+  background-image: radial-gradient(
+    70% 60% at 50% 100%,
+    color-mix(in oklab, var(--color-accent) 12%, transparent) 0%,
+    transparent 70%
+  );
+}
+
+/* Diagonal athletic hazard hatch, used on section dividers */
+@utility hatch {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    var(--color-line-strong) 0 1px,
+    transparent 1px 7px
+  );
+}
+
+@utility text-gradient-ink {
+  background: linear-gradient(180deg, var(--color-ink) 30%, color-mix(in oklab, var(--color-muted) 80%, transparent));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ==========================================================================
+   Interaction vocabulary
+   ---------------------------------------------------------------------------
+   Hover is the main way FORM tells you something is clickable, so the
+   treatments are named once here instead of being re-typed per component.
+
+   Two rules keep the site from turning into a toy:
+
+   1. Hover only ever *adds* emphasis. Every element is already identifiable
+      without it — border, cursor, and the focus ring carry the meaning, so
+      nothing here is load-bearing.
+   2. Movement is 2–4px and settles in ~200ms. Anything larger or slower
+      reads as sluggish rather than considered.
+
+   All of these are plain CSS transitions, so the `prefers-reduced-motion`
+   and `data-motion="reduce"` blocks at the bottom of this file switch them
+   off for free. That is why they are not written with `motion` components.
+   ========================================================================== */
+
+/** Anything with a hit area: rises a little, presses back down. */
+@utility lift {
+  transition:
+    transform var(--t-fast) var(--ease-out-expo),
+    background-color var(--t-fast) var(--ease-out-expo),
+    border-color var(--t-fast) var(--ease-out-expo),
+    box-shadow var(--t-fast) var(--ease-out-expo),
+    color var(--t-fast) var(--ease-out-expo);
+  &:hover {
+    transform: translateY(-2px);
+  }
+  &:active {
+    transform: translateY(0);
+  }
+}
+
+/** The standard card treatment: lift, brighten the border, deepen the shadow. */
+@utility lift-card {
+  transition:
+    transform var(--t-fast) var(--ease-out-expo),
+    border-color var(--t-fast) var(--ease-out-expo),
+    box-shadow var(--t-fast) var(--ease-out-expo),
+    background-color var(--t-fast) var(--ease-out-expo);
+  &:hover {
+    transform: translateY(-3px);
+    border-color: color-mix(in oklab, var(--color-accent) 45%, var(--color-line));
+    box-shadow:
+      var(--shadow-card),
+      0 18px 40px -26px color-mix(in oklab, var(--color-accent) 60%, transparent);
+  }
+  &:active {
+    transform: translateY(-1px);
+  }
+}
+
+/** A hairline that wipes in across the top edge. Purely decorative. */
+@utility edge-sweep {
+  &::before {
+    content: '';
+    position: absolute;
+    inset-inline: 0;
+    top: 0;
+    height: 1px;
+    background: var(--color-accent);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 480ms var(--ease-out-expo);
+  }
+  &:hover::before,
+  &:focus-within::before {
+    transform: scaleX(1);
+  }
+}
+
+/** Inline text link whose underline wipes in from the left. */
+@utility link-wipe {
+  position: relative;
+  text-decoration: none;
+  &::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -0.15em;
+    height: 1px;
+    background: currentColor;
+    transform: scaleX(0);
+    transform-origin: right;
+    transition: transform 320ms var(--ease-out-expo);
+  }
+  &:hover::after,
+  &:focus-visible::after {
+    transform: scaleX(1);
+    transform-origin: left;
+  }
+}
+
+/** A dense list row: tinted background plus an accent bar sliding in. */
+@utility row-hover {
+  position: relative;
+  transition:
+    background-color var(--t-fast) var(--ease-out-expo),
+    color var(--t-fast) var(--ease-out-expo);
+  &::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--color-accent);
+    transform: scaleY(0);
+    transform-origin: center;
+    transition: transform 260ms var(--ease-out-expo);
+  }
+  &:hover {
+    background-color: var(--color-surface-inset);
+  }
+  &:hover::before {
+    transform: scaleY(1);
+  }
+}
+
+/** Press feedback for anything with a hit area but no lift. */
+@utility press {
+  transition:
+    transform var(--t-instant) var(--ease-out-expo),
+    background-color var(--t-fast) var(--ease-out-expo),
+    border-color var(--t-fast) var(--ease-out-expo),
+    color var(--t-fast) var(--ease-out-expo),
+    box-shadow var(--t-fast) var(--ease-out-expo);
+  &:active {
+    transform: scale(0.975);
+  }
+}
+
+/**
+ * Push the leading icon of a button/row forward on hover. Applied on the
+ * parent so the movement only happens while the pointer is over the whole
+ * target, not just the glyph.
+ */
+@utility icon-nudge {
+  svg {
+    transition: transform var(--t-fast) var(--ease-out-expo);
+  }
+  &:hover svg {
+    transform: translateX(3px);
+  }
+}
+
+/** Same, but backwards — for "back" style controls. */
+@utility icon-nudge-back {
+  svg {
+    transition: transform var(--t-fast) var(--ease-out-expo);
+  }
+  &:hover svg {
+    transform: translateX(-3px);
+  }
+}
+
+/** Icon that tilts and grows slightly — used for decorative glyphs. */
+@utility icon-tilt {
+  svg {
+    transition:
+      transform var(--t-base) var(--ease-out-expo),
+      color var(--t-fast) var(--ease-out-expo);
+  }
+  &:hover svg {
+    color: var(--color-accent);
+    transform: scale(1.12) rotate(-6deg);
+  }
+}
+
+/* Range inputs — athletic track + lime thumb */
+@layer components {
+  input[type='range'].form-range {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 26px;
+    background: transparent;
+    cursor: pointer;
+  }
+  input[type='range'].form-range::-webkit-slider-runnable-track {
+    height: 4px;
+    border-radius: 999px;
+    background: var(--color-line-strong);
+  }
+  input[type='range'].form-range::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    margin-top: -8px;
+    height: 20px;
+    width: 20px;
+    border-radius: 999px;
+    background: var(--color-accent);
+    border: 3px solid var(--color-bg);
+    box-shadow: 0 0 0 1px var(--color-accent);
+    transition: transform 120ms var(--ease-out-expo);
+  }
+  input[type='range'].form-range:active::-webkit-slider-thumb {
+    transform: scale(1.12);
+  }
+  input[type='range'].form-range::-moz-range-track {
+    height: 4px;
+    border-radius: 999px;
+    background: var(--color-line-strong);
+  }
+  input[type='range'].form-range::-moz-range-thumb {
+    height: 20px;
+    width: 20px;
+    border-radius: 999px;
+    background: var(--color-accent);
+    border: 3px solid var(--color-bg);
+    box-shadow: 0 0 0 1px var(--color-accent);
+  }
+}
+
+/* ==========================================================================
+   motion — honours the OS setting and the in-app override
+   ========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion='full']) {
+    scroll-behavior: auto;
+  }
+  html:not([data-motion='full']) *,
+  html:not([data-motion='full']) *::before,
+  html:not([data-motion='full']) *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+html[data-motion='reduce'] *,
+html[data-motion='reduce'] *::before,
+html[data-motion='reduce'] *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+}
+
+/* Shared keyframes */
+@keyframes form-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes form-shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes form-pulse-ring {
+  0% {
+    transform: scale(0.92);
+    opacity: 0.7;
+  }
+  70% {
+    transform: scale(1.06);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1.06);
+    opacity: 0;
+  }
+}
+
+@utility animate-marquee {
+  animation: form-marquee 40s linear infinite;
+}
+
+@utility animate-pulse-ring {
+  animation: form-pulse-ring 2.4s var(--ease-out-expo) infinite;
+}
+
+/* Accessible hide (visible to screen readers) */
+@utility sr-only-focusable {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  &:focus {
+    position: static;
+    width: auto;
+    height: auto;
+    clip-path: none;
+    white-space: normal;
+  }
+}
+
+/* ==========================================================================
+   print — grocery list
+   ========================================================================== */
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+  .print-plain {
+    box-shadow: none !important;
+    border-color: #bbb !important;
+    background: #fff !important;
+  }
+  a[href]::after {
+    content: '';
+  }
+  @page {
+    margin: 14mm;
+  }
+}

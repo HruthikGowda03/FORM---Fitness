@@ -1,0 +1,16 @@
+node_modules
+dist
+dist-ssr
+coverage
+*.local
+.DS_Store
+.vite
+*.tsbuildinfo
+
+# Real env files. `*.local` above does not cover these, and once someone
+# creates a .env.production for PUBLIC_BASE_PATH it would otherwise be picked
+# up by `git add .` and committed. The example stays tracked, since it is the
+# documented template and contains no values.
+.env
+.env.*
+!.env.example
