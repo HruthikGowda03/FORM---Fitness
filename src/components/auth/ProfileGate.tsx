@@ -204,9 +204,14 @@ export function ProfileGate() {
 
         <div className="mt-10">
           <Callout tone="muted">
-            <strong className="text-ink">No password, no email, no server.</strong> Everything
-            stays in this browser. Clearing site data deletes a profile permanently, so export a
-            backup from Settings if it matters to you.
+            <strong className="text-ink">The name is just a label.</strong> It tells you and
+            anyone else sharing this device which set of data is whose — nothing more. The{' '}
+            <strong className="text-ink">PIN is an optional lock</strong>, so a housemate does
+            not open your plan by accident. It is not security, and there is no recovery: if the
+            PIN is forgotten, that profile has to be deleted and built again. Everything stays
+            in this browser, so closing the tab is safe — but clearing site data, or opening
+            FORM in a different browser or at a different address, will make it look like you
+            never existed.
           </Callout>
         </div>
         </div>

@@ -48,7 +48,12 @@ import { COOK_FACILITY_LABELS, COUNTRIES, FOOD_STYLE_LABELS, PLAN_MODE_HELP, PLA
 import { formatNumber, todayISO } from '@/lib/format'
 import { CURRENCY, downloadText } from '@/lib/prices'
 import { isSoundSupported, playWaterSound } from '@/lib/sound'
-import { fromImportBundle, toExportBundle } from '@/lib/storage'
+import {
+  currentOrigin,
+  describeStorageSize,
+  fromImportBundle,
+  toExportBundle,
+} from '@/lib/storage'
 import { PIN_DISCLOSURE, PIN_MAX, PIN_MIN, isValidPin } from '@/lib/pin'
 import { AVATAR_COLOURS } from '@/components/auth/ProfileGate'
 import { useActions, useAppState, useProfile } from '@/store/AppStore'
@@ -63,9 +68,17 @@ import type {
   WeightSystem,
 } from '@/types'
 
+/**
+ * This exact origin, so "my data vanished" becomes answerable at a glance.
+ *
+ * Shown rather than hidden because a port that silently changes hands the user
+ * an empty app with no error anywhere. Seeing `localhost:5174` when they have
+ * been using `localhost:5173` explains the whole thing in one glance.
+ */
 export function SettingsPage() {
   const active = useProfile()
   const state = useAppState()
+  const profiles = state.profiles
   const { profile, progress = [], customFoods = [], grocery = [], logs = {} } = active ?? {}
   const {
     setProfile,
@@ -632,7 +645,56 @@ export function SettingsPage() {
 
         {/* ==================== DATA ==================== */}
         <TabsContent value="data" className="pt-8">
-          <div className="grid gap-3 lg:grid-cols-2">
+          {/*
+            The single most confusing thing about a browser-only app is that
+            "my data disappeared" has no visible cause. People reasonably assume
+            a name and a PIN mean an account somewhere, and reasonably expect
+            closing a tab not to erase them.
+
+            So: state the scope plainly, name this exact origin, and show the
+            profile count. If the address below is not the one they have been
+            using, that is the answer, immediately and without a support
+            question.
+          */}
+          <Card className="border-accent/40">
+            <CardHeader>
+              <div className="flex items-center gap-2.5">
+                <Database className="size-4 text-accent" aria-hidden="true" />
+                <CardTitle as="h2">Where your data lives</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm leading-relaxed text-muted">
+                Everything FORM knows about you sits in <strong className="text-ink">this one
+                browser, on this one device</strong>. There is no account and no server, so
+                there is nothing to log into and nothing syncing. Closing the tab is safe — your
+                profiles, plan, logs and progress are all still here when you come back.
+              </p>
+
+              <dl className="mt-4 grid gap-px border border-line bg-line sm:grid-cols-3">
+                {[
+                  { label: 'Profiles stored', value: String(profiles.length) },
+                  { label: 'Storage used', value: describeStorageSize() },
+                  { label: 'This page is at', value: currentOrigin() },
+                ].map((s) => (
+                  <div key={s.label} className="bg-surface p-3">
+                    <dt className="eyebrow text-faint">{s.label}</dt>
+                    <dd className="mt-1 break-all text-sm font-bold text-ink">{s.value}</dd>
+                  </div>
+                ))}
+              </dl>
+
+              <Callout tone="muted" className="mt-4">
+                <strong className="text-ink">Your data will look gone if:</strong> you open FORM
+                in a different browser, a private/incognito window, or at a different address
+                (a different port, or a hosted URL rather than localhost). Those are separate
+                storage, with no way to see each other. Clearing site data deletes a profile
+                permanently.
+              </Callout>
+            </CardContent>
+          </Card>
+
+          <div className="mt-3 grid gap-3 lg:grid-cols-2">
             <Card>
               <CardHeader>
                 <div className="flex items-center gap-2.5">

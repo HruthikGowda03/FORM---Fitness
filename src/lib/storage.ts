@@ -320,6 +320,41 @@ export function writeNow(): void {
   }
 }
 
+/* --------------------------------------------------------------------------
+   Describing storage, for the "where your data lives" panel
+   --------------------------------------------------------------------------
+   Shown rather than hidden because the most common support question about a
+   browser-only app is "my profiles disappeared", and the usual answer is that
+   the user is on a different origin than they think. A dev server that moved
+   from :5173 to :5174, a private window, or a hosted URL instead of localhost
+   are all separate buckets that cannot see each other. Printing the current
+   host and the real byte size turns that from a mystery into a glance.
+   -------------------------------------------------------------------------- */
+
+/** The origin this copy of FORM is running on, e.g. `localhost:5173`. */
+export function currentOrigin(): string {
+  if (typeof window === 'undefined') return 'unknown'
+  return window.location.host
+}
+
+/** How much space the stored state occupies, in human terms. */
+export function describeStorageSize(): string {
+  const s = storage()
+  if (!s) return 'unavailable'
+  let raw: string | null = null
+  try {
+    raw = s.getItem(STORAGE_KEY)
+  } catch {
+    return 'unavailable'
+  }
+  if (!raw) return 'empty'
+
+  const bytes = raw.length
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
 export function clearState(): void {
   const s = storage()
   if (!s) return

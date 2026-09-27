@@ -35,6 +35,20 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       port: 5173,
+      /*
+        Fail loudly instead of drifting to 5174, 5175, ...
+
+        This is not a preference. localStorage is keyed by origin, so
+        `localhost:5173` and `localhost:5174` are two unrelated buckets. Without
+        strictPort, a stale server holding 5173 makes the next `npm run dev`
+        start one port higher — and every profile, plan and log appears to have
+        vanished, with no error anywhere. Losing a week of food logging to a
+        silent port increment is not an acceptable way to spend an afternoon.
+
+        If this errors with "port 5173 is already in use", the previous dev
+        server is still running. Kill it rather than working around it.
+      */
+      strictPort: true,
     },
     build: {
       /*

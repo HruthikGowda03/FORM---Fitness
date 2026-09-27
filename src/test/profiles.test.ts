@@ -1,7 +1,10 @@
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 
 import { reducer } from '@/store/AppStore'
 import {
+  STORAGE_KEY,
+  currentOrigin,
+  describeStorageSize,
   emptyState,
   newLocalProfile,
   sanitiseState,
@@ -536,5 +539,62 @@ describe('validators', () => {
   it('recognises a valid profile', () => {
     expect(isValidProfile(defaultProfile())).toBe(true)
     expect(isValidProfile({ height: 'tall' })).toBe(false)
+  })
+})
+
+/* ==========================================================================
+   Describing storage
+   --------------------------------------------------------------------------
+   Powers the "where your data lives" panel. It exists because "my profiles
+   disappeared" is otherwise undiagnosable from inside the app: the usual cause
+   is that the user is on a different origin than they think (a dev server that
+   drifted a port, a private window, localhost vs a hosted URL), and each of
+   those is a separate localStorage bucket that cannot see the others.
+   ========================================================================== */
+
+/** Pad a minimal valid state to an exact byte length, to test unit boundaries. */
+function writeStateOfBytes(n: number): void {
+  const raw = JSON.stringify({ version: 4, profiles: [], activeProfileId: null })
+  window.localStorage.setItem(STORAGE_KEY, raw.padEnd(n, ' '))
+}
+
+describe('describing storage', () => {
+  beforeEach(() => {
+    window.localStorage.clear()
+  })
+
+  it('reports the current host, so a moved port is visible', () => {
+    const host = currentOrigin()
+    expect(host).toBeTruthy()
+    expect(host).toBe(window.location.host)
+    // The whole point: it must include the port when there is one, since
+    // localhost:5173 and localhost:5174 are different buckets.
+    expect(host).not.toBe('unknown')
+  })
+
+  it('reports an empty store rather than a misleading zero', () => {
+    expect(describeStorageSize()).toBe('empty')
+  })
+
+  it('reports bytes, kilobytes and megabytes', () => {
+    writeStateOfBytes(512)
+    expect(describeStorageSize()).toBe('512 B')
+
+    writeStateOfBytes(5 * 1024)
+    expect(describeStorageSize()).toBe('5 KB')
+
+    writeStateOfBytes(3 * 1024 * 1024)
+    expect(describeStorageSize()).toBe('3.0 MB')
+  })
+
+  it('never claims a profile count it cannot back up', () => {
+    // A size of "empty" alongside a non-zero profile count would mean the
+    // panel was reading two different stores, which is precisely the confusion
+    // it is meant to remove.
+    window.localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ version: 4, profiles: [], activeProfileId: null }),
+    )
+    expect(describeStorageSize()).not.toBe('unavailable')
   })
 })

@@ -354,6 +354,33 @@ This is an educational prototype, not medical advice.
 - **Profiles live on one device.** There is no sync, so a plan made on a phone
   is not available on a laptop.
 
+### "My profiles disappeared"
+
+The most common confusion with a browser-only app, so it is worth writing down.
+All state is one `localStorage` key, `form.state.v4`, and `localStorage` is
+scoped to an **origin** — `scheme://host:port`. These are all separate buckets
+that cannot see each other:
+
+| what changed | what you see |
+| --- | --- |
+| a different browser (Edge vs Chrome) | empty app |
+| a private / incognito window | empty app, gone on close |
+| a different port (`localhost:5174`) | empty app |
+| `localhost:5173` vs a hosted URL | empty app |
+| cleared site data | permanently gone |
+
+**The dev-server trap.** Vite's default is to *increment* the port when the
+configured one is busy, which turns a stale background server into an apparently
+empty app with no error message anywhere. `vite.config.ts` therefore sets
+`strictPort: true`: a second `npm run dev` now fails loudly instead of silently
+starting somewhere new. If you see that error, kill the old server rather than
+working around it — the profiles are still in the old port's bucket and will
+reappear if you serve that port again.
+
+Settings → Data now shows the **current host** and the real byte size under
+"Where your data lives", so this diagnosis takes one glance rather than a
+support question.
+
 ## Deployment
 
 Build with `npm run build`; the output is `dist/`. It is a static bundle — no
