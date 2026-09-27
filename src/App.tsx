@@ -12,6 +12,7 @@ import { ProfileGate } from '@/components/auth/ProfileGate'
 import { LandingPage } from '@/pages/LandingPage'
 import { PageTransition } from '@/components/motion/primitives'
 import { Pages, preloadAllRoutes } from '@/lib/routes'
+import { useRecordVisit } from '@/lib/nav-history'
 import { useAppState, useProfile } from '@/store/AppStore'
 import { useScrollToTop } from '@/lib/hooks'
 
@@ -74,6 +75,14 @@ function Shell() {
   const { profiles, activeProfileId } = useAppState()
   const active = useProfile()
   useScrollToTop(location.pathname)
+
+  /*
+    Record every route for the Back button's benefit. A hook rather than an
+    effect in BackButton, because it has to run on routes that do not render one
+    — the landing page and the wizard — or the stack would have a hole in it
+    exactly where people are most likely to arrive from.
+  */
+  useRecordVisit(location.pathname)
 
   /**
    * After the first paint has settled, fetch every remaining chunk while the

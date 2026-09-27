@@ -20,7 +20,7 @@ npm run dev      # http://localhost:5173
 | `npm run dev` | Vite dev server with HMR |
 | `npm run build` | typecheck + production bundle into `dist/` |
 | `npm run preview` | serve the built bundle |
-| `npm test` | 234 unit tests (Vitest) |
+| `npm test` | 249 unit tests (Vitest) |
 | `npm run test:watch` | tests in watch mode |
 | `npm run lint` | oxlint |
 | `npm run typecheck` | TypeScript only |
@@ -162,7 +162,7 @@ nothing is load-bearing), and movement stays within 2–4px and ~200ms.
 
 ## Testing
 
-234 tests, no snapshots — they assert behaviour.
+249 tests, no snapshots — they assert behaviour.
 ```
 src/test/
 ├─ nutrition.test.ts   BMR/TDEE/macro maths, goal deltas, safety floors, gating
@@ -176,6 +176,8 @@ src/test/
                        no orphan colour utilities, WCAG AA on `text-faint`
 └─ sound.test.ts       water-bubble synth: graph shape, envelope scheduling,
                        voice capping, and that it stays silent when it should
+└─ navigation.test.ts  Back button: logical parents per route, root has no
+                       parent, and the visit stack under back/forward loops
 ```
 
 Four real bugs were caught by tests rather than by looking at the screen:
@@ -212,6 +214,43 @@ Lighthouse accessibility is **100 with zero failing audits**, verified in both
 themes. Getting there meant fixing `--color-faint`, which measured 3.6:1 on
 every surface it was used on, and dropping an `aria-label` on the brand link
 that did not contain its own visible text (WCAG 2.5.3, Label in Name).
+
+## Navigation
+
+Every internal page has a Back control, in the same place, in the same style.
+It is rendered by `PageShell` rather than added page by page, so a new page
+inherits it and it cannot drift out of alignment on the `narrow` and `wide`
+layouts. The landing page does not use `PageShell` and the onboarding wizard
+has its own step Back, so neither can acquire one by accident.
+
+The destination has two tiers:
+
+| situation | goes to |
+| --- | --- |
+| you navigated here from another page | that page, via the real history entry |
+| deep link, refresh, bookmark | the route's *logical parent* |
+
+Logical parents: the app routes (`/planner`, `/explore`, `/progress`,
+`/grocery`, `/settings`) go to `/dashboard`, since they are siblings under the
+nav rather than a tree; `/dashboard` goes to `/`; `/learn/:slug` goes to
+`/learn`; anything unrecognised goes to `/`.
+
+A Back that always went to the homepage would throw away where the user
+actually was, and on a nine-route app that is almost never what they wanted. But
+it cannot simply be `navigate(-1)` either — open `/planner` from a shared link
+and there is no history to go back to.
+
+The app never writes to browser history, so the browser's own back button
+behaves exactly as it always did. Our button uses the real history entry when
+there is one, so the two are normally the same gesture. They deliberately differ
+in one case: visit the planner, go to Learn, then navigate back to the planner.
+Browser back would return you to Learn — the page you were just on — so the
+button offers the planner's parent instead. The visit stack collapses revisits
+so the button cannot loop; matching the browser's literal history entry is not
+the goal.
+
+`/onboarding` is refused as a back destination. Once the wizard has produced a
+plan, returning to it drops you into the middle of an edit session.
 
 ## Sound
 

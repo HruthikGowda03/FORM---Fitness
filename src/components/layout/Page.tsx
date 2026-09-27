@@ -7,21 +7,29 @@ import type { ReactNode } from 'react'
 
 import { cn } from '@/lib/cn'
 import { revealUp, viewportOnce } from '@/lib/motion'
+import { BackButton } from '@/components/layout/BackButton'
 
 /** Standard page frame: consistent max width, gutters and top spacing. */
 export function PageShell({
   children,
   className,
   width = 'default',
+  back = true,
 }: {
   children: ReactNode
   className?: string
   width?: 'default' | 'wide' | 'narrow'
+  /**
+   * The page Back control. On by default so a new page gets it by existing;
+   * pass false only for a layout that supplies its own.
+   */
+  back?: boolean
 }) {
   const max =
     width === 'wide' ? 'max-w-[104rem]' : width === 'narrow' ? 'max-w-3xl' : 'max-w-app'
   return (
     <div className={cn('mx-auto w-full px-4 pt-28 pb-20 sm:px-6 lg:px-8', max, className)}>
+      {back && <BackButton />}
       {children}
     </div>
   )

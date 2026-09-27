@@ -18,7 +18,6 @@
    ========================================================================== */
 
 import { motion, useReducedMotion, type HTMLMotionProps } from 'motion/react'
-import { useLocation } from 'react-router-dom'
 import type { ElementType, ReactNode } from 'react'
 
 import { EASE } from '@/lib/motion'
@@ -61,11 +60,6 @@ export function PageTransition({
       {children}
     </motion.div>
   )
-}
-
-/** Reads the current path so a caller can key off route changes. */
-export function useRouteKey(): string {
-  return useLocation().pathname
 }
 
 /* --------------------------------------------------------------------------

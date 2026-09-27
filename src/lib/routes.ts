@@ -68,3 +68,56 @@ export function preloadAllRoutes(): void {
     void loaders[key]()
   }
 }
+
+/* --------------------------------------------------------------------------
+   Logical parent routes
+   --------------------------------------------------------------------------
+   The destination for a Back button when the user did *not* arrive from
+   another page — a deep link, a refresh, a bookmark, or a shared URL.
+
+   The app routes are siblings under a nav bar, not a tree, so their parent is
+   the dashboard: the screen you land on when entering the app. Article pages
+   really are nested, so theirs is the article list.
+   --------------------------------------------------------------------------
+*/
+
+const LOGICAL_PARENT: Record<string, string> = {
+  '/dashboard': '/',
+  '/planner': '/dashboard',
+  '/explore': '/dashboard',
+  '/progress': '/dashboard',
+  '/grocery': '/dashboard',
+  '/settings': '/dashboard',
+  '/learn': '/',
+  '/onboarding': '/',
+}
+
+/**
+ * The route one level above `pathname`, or null if it has none.
+ *
+ * Returning null for the root rather than the root itself matters: a
+ * self-parenting entry would make any Back control on `/` a permanent no-op,
+ * and `/` is exactly where a Back button must not exist.
+ */
+export function logicalParent(pathname: string): string | null {
+  // The root of the site has nothing above it.
+  if (pathname === '/' || pathname === '') return null
+  // Articles sit one level below the index.
+  if (pathname.startsWith('/learn/')) return '/learn'
+  const parent = LOGICAL_PARENT[pathname]
+  // Anything unrecognised — including the 404 route — goes to the start.
+  return parent && parent !== pathname ? parent : '/'
+}
+
+/**
+ * Pages that are never a sensible Back destination.
+ *
+ * The onboarding wizard is a linear flow, not a page: once it has produced a
+ * plan, returning to it drops the user into the middle of an edit session. The
+ * dashboard is where the app opens, so its own real parent is a better answer.
+ */
+const NOT_A_BACK_DESTINATION = new Set(['/onboarding'])
+
+export function isBackDestination(pathname: string): boolean {
+  return !NOT_A_BACK_DESTINATION.has(pathname)
+}
