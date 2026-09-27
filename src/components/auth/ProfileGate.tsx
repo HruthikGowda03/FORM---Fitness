@@ -16,7 +16,7 @@
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { ArrowRight, KeyRound, Lock, Plus, ShieldOff, Trash2 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 
 import { BrandLockup } from '@/components/layout/Brand'
 import { BackButton } from '@/components/layout/BackButton'
@@ -43,6 +43,7 @@ import { AVATAR_COUNT, type LocalProfile } from '@/types'
 export function ProfileGate() {
   const { profiles } = useAppState()
   const { createProfile, selectProfile, unlockProfile, removeProfile } = useActions()
+  const navigate = useNavigate()
 
   useEffect(() => {
     // The picker is a standalone screen, not a route. Tabs need something
@@ -77,6 +78,19 @@ export function ProfileGate() {
     own: choosing a different person would have done nothing at all.
   */
 
+  /**
+   * Where to go once a profile is open.
+   *
+   * The wizard writes its answers onto the profile, so a profile that has not
+   * been through it yet belongs in the wizard — and `replace`, because reaching
+   * the wizard is the next step of the journey rather than a new page to be able
+   * to navigate back to.
+   */
+  const enter = (id: string) => {
+    const target = profiles.find((p) => p.id === id)
+    navigate(target?.onboardingComplete ? '/dashboard' : '/onboarding', { replace: true })
+  }
+
   const submitPin = async () => {
     if (!unlocking) return
     if (!isValidPin(pin)) {
@@ -84,7 +98,11 @@ export function ProfileGate() {
       return
     }
     const ok = await unlockProfile(unlocking.id, pin)
-    if (!ok) setError('That PIN does not match. Check with the person who set it.')
+    if (!ok) {
+      setError('That PIN does not match. Check with the person who set it.')
+      return
+    }
+    enter(unlocking.id)
   }
 
   return (
@@ -129,7 +147,13 @@ export function ProfileGate() {
               >
                 <button
                   type="button"
-                  onClick={() => (p.pinHash ? setUnlocking(p) : void selectProfile(p.id))}
+                  onClick={() => {
+                    if (p.pinHash) {
+                      setUnlocking(p)
+                      return
+                    }
+                    void selectProfile(p.id).then(() => enter(p.id))
+                  }}
                   className="flex w-full items-center gap-4 border border-line bg-surface p-4 text-left transition-colors hover:border-accent/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                 >
                   <Avatar index={p.avatarIndex} locked={Boolean(p.pinHash)} />
@@ -194,8 +218,12 @@ export function ProfileGate() {
         onOpenChange={setCreating}
         existingCount={profiles.length}
         onCreate={async (input) => {
-          await createProfile(input)
+          const id = await createProfile(input)
           setCreating(false)
+          // Straight into the wizard. Sitting on the picker after creating a
+          // profile left the user with no obvious next step, and it is the
+          // wizard that actually needs them.
+          if (id) enter(id)
         }}
       />
 

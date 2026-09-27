@@ -511,7 +511,11 @@ export type Derived = {
 }
 
 export type AppActions = {
-  createProfile: (input: { name: string; pin?: string; avatarIndex: number }) => Promise<boolean>
+  createProfile: (input: {
+    name: string
+    pin?: string
+    avatarIndex: number
+  }) => Promise<string>
   selectProfile: (id: string) => Promise<boolean>
   unlockProfile: (id: string, pin: string) => Promise<boolean>
   renameProfile: (id: string, name: string) => void
@@ -604,7 +608,9 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
           avatarIndex: draft.avatarIndex,
           id: draft.id,
         })
-        return true
+        // The new profile's id, so the caller can route onward to the wizard
+        // rather than inferring it from a re-render.
+        return draft.id
       },
 
       selectProfile: async (id) => {

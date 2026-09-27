@@ -254,6 +254,59 @@ describe('per-profile data', () => {
 })
 
 /* ==========================================================================
+   The wizard's answers have to land on a profile
+   --------------------------------------------------------------------------
+   `/onboarding` used to be reachable with no profile open, so the reducer hit
+   its `if (!active) return state` guard and threw the answers away without a
+   sound. The user answered all nine questions, hit Finish, and was then asked
+   to create a profile — as though none of it had counted. Nothing was wrong
+   with the nine answers; there was simply nothing to attach them to.
+
+   The fix was in routing (the wizard now requires a profile), which makes this
+   reducer behaviour load-bearing rather than incidental. These tests are here
+   so that guard stays deliberate: if it is ever relaxed, the silent data loss
+   comes straight back.
+   ========================================================================== */
+
+describe('finishing the wizard', () => {
+  it('silently discards the answers when no profile is open', () => {
+    // The trap. Documented deliberately: this is what made nine steps of input
+    // vanish. It must stay a *no-op* rather than throw, so the route guard is
+    // the only thing standing between a user and lost work.
+    const s = reducer(emptyState(), {
+      type: 'data/onboardingComplete',
+      profile: { ...defaultProfile(), isAdult: true, age: 30 },
+    })
+    expect(s.profiles).toHaveLength(0)
+    expect(s.activeProfileId).toBeNull()
+  })
+
+  it('attaches the answers and builds a seven-day plan', () => {
+    let s = stateWith(mkProfile({ id: 'p1' }))
+    s = reducer(s, {
+      type: 'data/onboardingComplete',
+      profile: { ...defaultProfile(), isAdult: true, age: 30 },
+    })
+    expect(s.profiles[0].onboardingComplete).toBe(true)
+    expect(s.profiles[0].profile?.age).toBe(30)
+    expect(s.profiles[0].plan?.days).toHaveLength(7)
+  })
+
+  it('is reachable only through a selected profile, never a stale id', () => {
+    // `activeProfileId` pointing at a removed profile must not resurrect data
+    // onto the wrong person — or, worse, appear to succeed.
+    const s = stateWith(mkProfile({ id: 'p1' }))
+    const orphaned: AppState = { ...s, activeProfileId: 'gone' }
+    const after = reducer(orphaned, {
+      type: 'data/onboardingComplete',
+      profile: { ...defaultProfile(), isAdult: true, age: 30 },
+    })
+    expect(after.profiles[0].onboardingComplete).toBe(false)
+    expect(after.profiles[0].profile).toBeNull()
+  })
+})
+
+/* ==========================================================================
    PIN
    ========================================================================== */
 

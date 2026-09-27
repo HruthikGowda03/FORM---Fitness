@@ -106,6 +106,29 @@ If real accounts are ever wanted, that needs a backend, password hashing, a
 session model, recovery, and probably a privacy review. It is a genuine project
 in itself, not a form.
 
+#### First-run order: profile first, then the nine questions
+
+The order is **create a profile → answer nine questions → plan**, and the
+sequencing is load-bearing rather than cosmetic.
+
+The wizard's answers are written onto a profile when it finishes. `/onboarding`
+used to be treated as a route that renders without a profile, so pressing "Build
+my plan" dropped a first-time visitor straight into step 1 of 9 with no profile
+open. The reducer then hit its `if (!active) return state` guard and **discarded
+the entire answer set without a word** — after which they were asked to create a
+profile, as though nothing had happened.
+
+So `/onboarding` is deliberately *not* in `isPublicRoute`, and it gets its own
+branch in `redirectFor` rather than falling through to the generic
+"unfinished profile" case, which would redirect `/onboarding` to `/onboarding`.
+Once a profile exists, the picker hands straight over to the wizard; a profile
+that has already been through it goes to the dashboard instead.
+
+Both halves are pinned by tests: `first-run.test.ts` drives the real
+`redirectFor` (imported, not mirrored — a copy would drift and then pass while
+the app lost data again), and `profiles.test.ts` documents the reducer's
+no-op-on-no-profile behaviour so the guard is never relaxed by accident.
+
 ### Profile isolation
 
 Every data action applies to the active profile only. Logging a meal, adding

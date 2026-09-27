@@ -95,6 +95,64 @@ export function preloadAllRoutes(): void {
  */
 export const PROFILES_PATH = '/profiles'
 
+/* --------------------------------------------------------------------------
+   Who is allowed to be where
+   --------------------------------------------------------------------------
+   Lives here, beside the rest of the route knowledge, rather than inside
+   App.tsx: it is pure, it is the part that is easy to get subtly wrong, and
+   from out here the tests can exercise the real function instead of a copy of
+   it. A mirrored copy would drift the first time the guard changed and then
+   quietly pass.
+   -------------------------------------------------------------------------- */
+
+/**
+ * Routes that render without a chosen profile.
+ *
+ * The landing page is the entry point for someone who has never used FORM, the
+ * knowledge centre is reference material, and the picker is what you land on
+ * when there is no profile. None of the three are personalised.
+ *
+ * `/onboarding` is deliberately absent. The wizard's answers are written onto a
+ * profile when it finishes, so running it with no profile means the work is
+ * thrown away — which is exactly what happened: nine steps, then a picker,
+ * because the reducer had no active profile to attach the answers to and
+ * dropped them without a sound.
+ */
+export function isPublicRoute(pathname: string): boolean {
+  return (
+    pathname === '/' ||
+    pathname === PROFILES_PATH ||
+    pathname === '/learn' ||
+    pathname.startsWith('/learn/')
+  )
+}
+
+/**
+ * Where this URL should send the user, or null if it can render as-is.
+ *
+ * Every guard lives here rather than wrapped around individual routes, for one
+ * specific reason: a redirect that fires *after* the shell has started recording
+ * navigation leaves a bogus entry in the Back button's history. Deep-link to
+ * /grocery with no profile and you get sent to /profiles; had /grocery been
+ * recorded first, Back on the picker would return to /grocery, which would
+ * redirect straight back to the picker. Forever.
+ */
+export function redirectFor(
+  pathname: string,
+  active: { onboardingComplete: boolean } | null,
+): string | null {
+  if (isPublicRoute(pathname)) return null
+  // The wizard needs a profile to write to, but must not bounce a user who is
+  // already in it — hence its own branch rather than falling through to the
+  // `!onboardingComplete` case below, which would redirect to itself.
+  if (pathname === '/onboarding') return active ? null : PROFILES_PATH
+  // Nothing chosen yet: the picker is the only sensible destination.
+  if (!active) return PROFILES_PATH
+  // A profile exists but has no plan, so there is nothing here to show.
+  if (!active.onboardingComplete) return '/onboarding'
+  return null
+}
+
 const LOGICAL_PARENT: Record<string, string> = {
   '/dashboard': '/',
   '/planner': '/dashboard',

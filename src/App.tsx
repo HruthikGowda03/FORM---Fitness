@@ -11,10 +11,9 @@ import { Footer } from '@/components/layout/Footer'
 import { ProfileGate } from '@/components/auth/ProfileGate'
 import { LandingPage } from '@/pages/LandingPage'
 import { PageTransition } from '@/components/motion/primitives'
-import { Pages, preloadAllRoutes, PROFILES_PATH } from '@/lib/routes'
+import { Pages, preloadAllRoutes, PROFILES_PATH, redirectFor } from '@/lib/routes'
 import { useRecordVisit } from '@/lib/nav-history'
 import { useProfile } from '@/store/AppStore'
-import type { LocalProfile } from '@/types'
 import { useScrollToTop } from '@/lib/hooks'
 
 /* The landing page ships in the main bundle so the first paint is fast.
@@ -43,42 +42,6 @@ function RouteFallback() {
       </div>
     </div>
   )
-}
-
-/**
- * Routes that render without a chosen profile.
- *
- * The landing page is the entry point for someone who has never used FORM, the
- * knowledge centre is reference material, and the picker is what you land on
- * when there is no profile. None of the three are personalised.
- */
-function isPublicRoute(pathname: string): boolean {
-  return (
-    pathname === '/' ||
-    pathname === PROFILES_PATH ||
-    pathname === '/onboarding' ||
-    pathname === '/learn' ||
-    pathname.startsWith('/learn/')
-  )
-}
-
-/**
- * Where this URL should send the user, or null if it can render as-is.
- *
- * Every guard lives here rather than wrapped around individual routes, for one
- * specific reason: a redirect that fires *after* the shell has started recording
- * navigation leaves a bogus entry in the Back button's history. Deep-link to
- * /grocery with no profile and you get sent to /profiles; had /grocery been
- * recorded first, Back on the picker would return to /grocery, which would
- * redirect straight back to the picker. Forever.
- */
-function redirectFor(pathname: string, active: LocalProfile | null): string | null {
-  if (isPublicRoute(pathname)) return null
-  // Nothing chosen yet: the picker is the only sensible destination.
-  if (!active) return PROFILES_PATH
-  // A profile exists but has no plan, so there is nothing here to show.
-  if (!active.onboardingComplete) return '/onboarding'
-  return null
 }
 
 function Shell() {
