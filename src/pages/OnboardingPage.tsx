@@ -34,6 +34,7 @@ import {
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { EASE, stepVariants } from '@/lib/motion'
+import { BackButton } from '@/components/layout/BackButton'
 import { cmToFeetInches, feetInchesToCm, formatHeight, fromKg, toKg } from '@/lib/units'
 import { defaultProfile, COOK_FACILITY_LABELS, COUNTRIES, FOOD_STYLE_LABELS, GYM_EXPERIENCE_LABELS, HEALTH_FLAG_HELP, HEALTH_FLAG_LABELS, PLAN_MODE_HELP, PLAN_MODE_LABELS, RATE_HELP, RATE_LABELS, WORKOUT_TIME_LABELS, WORKOUT_TYPE_LABELS } from '@/lib/defaults'
 import { ACTIVITY_LEVELS, computeCalorieBasis, computePlanTargets, goalDescriptor } from '@/lib/nutrition'
@@ -245,6 +246,14 @@ export function OnboardingPage() {
       </div>
 
       <div className="mx-auto w-full max-w-app px-4 pt-24 pb-20 sm:px-6 sm:pt-28 lg:px-8">
+        {/*
+          The wizard does not use PageShell — it has its own full-height layout —
+          so it opts in to the page Back explicitly. Without this, step 1 of the
+          wizard had no way back at all: the step control below only starts
+          existing from step 2, so "Build my plan" was a one-way door.
+        */}
+        <BackButton />
+
         {/* ---------------- header ---------------- */}
         <div className="flex flex-col gap-6 border-b border-line pb-8 lg:flex-row lg:items-end lg:justify-between">
           <div>
@@ -349,15 +358,24 @@ export function OnboardingPage() {
             {/* ---------------- nav ---------------- */}
             <div className="mt-10 flex flex-col-reverse gap-3 border-t border-line pt-6 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex gap-3">
-                <Button
-                  variant="ghost"
-                  onClick={goBack}
-                  disabled={stepIndex === 0}
-                  className={cn('icon-nudge-back', stepIndex === 0 && 'invisible')}
-                >
-                  <ArrowLeft className="size-4" />
-                  Back
-                </Button>
+                {/*
+                  Only rendered once there is a step to go back to. It used to be
+                  rendered at step 1 as well, `disabled` and `invisible` — which
+                  reserved the space, announced itself to assistive tech as a
+                  dead control, and left a first-time user on "Build your plan"
+                  with no way off the page. The page-level Back above covers
+                  that case.
+
+                  Labelled "Previous step" rather than "Back" so it is never
+                  confused with the page-level Back: one leaves the wizard, this
+                  one walks back through it.
+                */}
+                {stepIndex > 0 && (
+                  <Button variant="ghost" onClick={goBack} className="icon-nudge-back">
+                    <ArrowLeft className="size-4" />
+                    Previous step
+                  </Button>
+                )}
                 {onboardingComplete && (
                   <Button
                     variant="ghost"

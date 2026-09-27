@@ -20,7 +20,7 @@ npm run dev      # http://localhost:5173
 | `npm run dev` | Vite dev server with HMR |
 | `npm run build` | typecheck + production bundle into `dist/` |
 | `npm run preview` | serve the built bundle |
-| `npm test` | 249 unit tests (Vitest) |
+| `npm test` | 260 unit tests (Vitest) |
 | `npm run test:watch` | tests in watch mode |
 | `npm run lint` | oxlint |
 | `npm run typecheck` | TypeScript only |
@@ -162,7 +162,7 @@ nothing is load-bearing), and movement stays within 2–4px and ~200ms.
 
 ## Testing
 
-249 tests, no snapshots — they assert behaviour.
+260 tests, no snapshots — they assert behaviour.
 ```
 src/test/
 ├─ nutrition.test.ts   BMR/TDEE/macro maths, goal deltas, safety floors, gating
@@ -178,6 +178,9 @@ src/test/
                        voice capping, and that it stays silent when it should
 └─ navigation.test.ts  Back button: logical parents per route, root has no
                        parent, and the visit stack under back/forward loops
+└─ back-button.test.tsx  Back button rendered through a real router: present
+                       where it should be, absent on the landing page,
+                       accessible name, and where a click actually navigates
 ```
 
 Four real bugs were caught by tests rather than by looking at the screen:
@@ -220,8 +223,15 @@ that did not contain its own visible text (WCAG 2.5.3, Label in Name).
 Every internal page has a Back control, in the same place, in the same style.
 It is rendered by `PageShell` rather than added page by page, so a new page
 inherits it and it cannot drift out of alignment on the `narrow` and `wide`
-layouts. The landing page does not use `PageShell` and the onboarding wizard
-has its own step Back, so neither can acquire one by accident.
+layouts. The landing page does not use `PageShell`, so it cannot acquire one.
+
+The onboarding wizard has its own full-height layout and opts in explicitly. It
+also keeps a **"Previous step"** control in its wizard bar, deliberately *not*
+labelled "Back": one leaves the wizard, the other walks back through it, and two
+controls reading "Back" on one screen is worse than either. That step control is
+only rendered from step 2 onwards — previously it was also present on step 1 as
+`disabled` + `invisible`, which reserved the space, announced a dead control to
+assistive tech, and made "Build my plan" a one-way door.
 
 The destination has two tiers:
 
