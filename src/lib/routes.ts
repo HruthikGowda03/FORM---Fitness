@@ -51,6 +51,9 @@ export const Pages = {
  */
 function routeKey(pathname: string): RoutePath {
   if (pathname === '/' || pathname === '') return '/404' // landing ships eagerly
+  // The picker ships eagerly too, because it is where a first-time visitor
+  // ends up and it must not wait on a network round trip to appear.
+  if (pathname === '/profiles') return '/404'
   if (pathname === '/learn' || pathname.startsWith('/learn/')) return '/learn'
   if (pathname in loaders) return pathname as RoutePath
   return '/404'
@@ -81,6 +84,17 @@ export function preloadAllRoutes(): void {
    --------------------------------------------------------------------------
 */
 
+/**
+ * Where the profile picker lives.
+ *
+ * The picker used to be a screen that replaced the entire shell whenever no
+ * profile was active, which meant it inherited whatever URL you happened to be
+ * on. So it had no coherent "back", and a deep link to /dashboard dropped you on
+ * the picker with no way off it at all. Giving it a real path fixes both: Back
+ * has somewhere to go, and the landing page stays the landing page.
+ */
+export const PROFILES_PATH = '/profiles'
+
 const LOGICAL_PARENT: Record<string, string> = {
   '/dashboard': '/',
   '/planner': '/dashboard',
@@ -90,6 +104,9 @@ const LOGICAL_PARENT: Record<string, string> = {
   '/settings': '/dashboard',
   '/learn': '/',
   '/onboarding': '/',
+  // The picker. Always the landing page, never the app route that redirected
+  // here — see `forceFallback` on BackButton.
+  '/profiles': '/',
 }
 
 /**

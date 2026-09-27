@@ -16,8 +16,10 @@
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { ArrowRight, KeyRound, Lock, Plus, ShieldOff, Trash2 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 
 import { BrandLockup } from '@/components/layout/Brand'
+import { BackButton } from '@/components/layout/BackButton'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -39,7 +41,7 @@ import { useActions, useAppState } from '@/store/AppStore'
 import { AVATAR_COUNT, type LocalProfile } from '@/types'
 
 export function ProfileGate() {
-  const { profiles, activeProfileId } = useAppState()
+  const { profiles } = useAppState()
   const { createProfile, selectProfile, unlockProfile, removeProfile } = useActions()
 
   useEffect(() => {
@@ -67,9 +69,13 @@ export function ProfileGate() {
     }
   }, [unlocking])
 
-  // A selected profile means we are past the gate. An empty id is the
-  // "closed but profiles exist" state, which the gate must render.
-  if (activeProfileId && profiles.some((p) => p.id === activeProfileId)) return null
+  /*
+    Reaching this screen *is* the request, so it renders even when a profile is
+    already open — that is the whole point of the nav's "switch profile"
+    control. It used to `return null` in that case, which was right when this
+    replaced the entire shell and wrong the moment it became a route of its
+    own: choosing a different person would have done nothing at all.
+  */
 
   const submitPin = async () => {
     if (!unlocking) return
@@ -89,16 +95,25 @@ export function ProfileGate() {
         <div className="absolute inset-x-0 top-0 h-[70vh] bloom-lime opacity-60" />
       </div>
 
-      <div className="mx-auto flex min-h-dvh w-full max-w-2xl flex-col justify-center px-4 py-16 sm:px-6">
-        <div className="flex flex-col items-center text-center">
-          <BrandLockup />
-          <p className="eyebrow mt-8 text-accent">Who is training today?</p>
-          <h1 className="display-face mt-3 text-display-md">Pick a profile.</h1>
-          <p className="mt-4 max-w-md text-base leading-relaxed text-muted">
-            Each profile keeps its own plan, meals, logs and progress, so several people can share
-            one device without overwriting each other.
-          </p>
-        </div>
+      <div className="mx-auto flex min-h-dvh w-full max-w-2xl flex-col px-4 py-16 sm:px-6">
+        {/*
+          The picker is a real route now, so it has somewhere to go back to.
+          `forceFallback` because this screen is usually *reached by* a redirect:
+          offering history back would send the user to the app route that bounced
+          them here, which would bounce them straight back.
+        */}
+        <div className="flex flex-1 flex-col justify-center">
+          <BackButton forceFallback className="self-start" />
+
+          <div className="flex flex-col items-center text-center">
+            <BrandLockup />
+            <p className="eyebrow mt-8 text-accent">Who is training today?</p>
+            <h1 className="display-face mt-3 text-display-md">Pick a profile.</h1>
+            <p className="mt-4 max-w-md text-base leading-relaxed text-muted">
+              Each profile keeps its own plan, meals, logs and progress, so several people can
+              share one device without overwriting each other.
+            </p>
+          </div>
 
         {/* ---------------- existing profiles ---------------- */}
         {profiles.length > 0 && (
@@ -149,12 +164,27 @@ export function ProfileGate() {
           </Button>
         </div>
 
+        {/*
+          A second way out that is not a Back button. Someone who landed here by
+          following a link into the app may not think of this screen as somewhere
+          you navigate *back* from — and the knowledge centre is readable without
+          a profile.
+        */}
+        <p className="mt-6 text-center text-sm text-muted">
+          Not ready yet?{' '}
+          <Link to="/learn" className="link-wipe inline-block text-accent">
+            Read the knowledge centre
+          </Link>
+          .
+        </p>
+
         <div className="mt-10">
           <Callout tone="muted">
             <strong className="text-ink">No password, no email, no server.</strong> Everything
             stays in this browser. Clearing site data deletes a profile permanently, so export a
             backup from Settings if it matters to you.
           </Callout>
+        </div>
         </div>
       </div>
 

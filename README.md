@@ -220,6 +220,22 @@ that did not contain its own visible text (WCAG 2.5.3, Label in Name).
 
 ## Navigation
 
+The profile picker is a real route at `/profiles`. It used to be a screen that
+replaced the entire shell whenever no profile was open, so it inherited whatever
+URL you happened to be on — it had no coherent "back", and following a link into
+`/dashboard` dropped you on the picker with no way off it. Being a route fixes
+that, and `/` is now unconditionally the landing page.
+
+Every route guard lives in one `redirectFor` check in `App.tsx` rather than
+wrapped around individual routes, for one specific reason: a redirect that fires
+*after* the shell starts recording navigation leaves a bogus entry in the visit
+stack. Deep-link to `/grocery` with no profile and you get sent to `/profiles`;
+had `/grocery` been recorded first, Back on the picker would return to
+`/grocery`, which would redirect straight back — forever. Redirects also use
+`replace`, so the browser's own back button leaves the app instead of bouncing.
+For the same reason the picker's Back button ignores the visit stack
+(`forceFallback`) and always offers the landing page.
+
 Every internal page has a Back control, in the same place, in the same style.
 It is rendered by `PageShell` rather than added page by page, so a new page
 inherits it and it cannot drift out of alignment on the `narrow` and `wide`
@@ -242,8 +258,8 @@ The destination has two tiers:
 
 Logical parents: the app routes (`/planner`, `/explore`, `/progress`,
 `/grocery`, `/settings`) go to `/dashboard`, since they are siblings under the
-nav rather than a tree; `/dashboard` goes to `/`; `/learn/:slug` goes to
-`/learn`; anything unrecognised goes to `/`.
+nav rather than a tree; `/dashboard` and `/profiles` go to `/`; `/learn/:slug`
+goes to `/learn`; anything unrecognised goes to `/`.
 
 A Back that always went to the homepage would throw away where the user
 actually was, and on a nine-route app that is almost never what they wanted. But

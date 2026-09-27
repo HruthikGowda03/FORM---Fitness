@@ -139,4 +139,27 @@ describe('BackButton', () => {
       screen.getByRole('button', { name: 'Back to your dashboard' }),
     ).toBeInTheDocument()
   })
+
+  it('ignores history on a screen reached by a redirect', () => {
+    // Deep-link to /grocery with no profile and you land on the picker. If the
+    // picker offered history back to /grocery, the click would go to /grocery,
+    // which redirects straight back here - a loop with no way out.
+    recordVisit('/grocery')
+    render(
+      <MemoryRouter initialEntries={['/profiles']}>
+        <BackButton forceFallback />
+        <PathProbe />
+      </MemoryRouter>,
+    )
+    expect(
+      screen.getByRole('button', { name: 'Back to the home page' }),
+    ).toBeInTheDocument()
+  })
+
+  it('offers a working way off the picker', async () => {
+    const user = userEvent.setup()
+    renderAt('/profiles')
+    await user.click(screen.getByRole('button', { name: 'Back to the home page' }))
+    expect(path()).toBe('/')
+  })
 })

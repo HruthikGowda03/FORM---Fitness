@@ -11,9 +11,10 @@ import { Footer } from '@/components/layout/Footer'
 import { ProfileGate } from '@/components/auth/ProfileGate'
 import { LandingPage } from '@/pages/LandingPage'
 import { PageTransition } from '@/components/motion/primitives'
-import { Pages, preloadAllRoutes } from '@/lib/routes'
+import { Pages, preloadAllRoutes, PROFILES_PATH } from '@/lib/routes'
 import { useRecordVisit } from '@/lib/nav-history'
-import { useAppState, useProfile } from '@/store/AppStore'
+import { useProfile } from '@/store/AppStore'
+import type { LocalProfile } from '@/types'
 import { useScrollToTop } from '@/lib/hooks'
 
 /* The landing page ships in the main bundle so the first paint is fast.
@@ -45,50 +46,76 @@ function RouteFallback() {
 }
 
 /**
- * Gates the app routes behind a completed profile. Onboarding and the
- * knowledge centre stay open so the app is never a dead end.
+ * Routes that render without a chosen profile.
+ *
+ * The landing page is the entry point for someone who has never used FORM, the
+ * knowledge centre is reference material, and the picker is what you land on
+ * when there is no profile. None of the three are personalised.
  */
-function RequireProfile({ children }: { children: React.ReactNode }) {
-  const active = useProfile()
-  const location = useLocation()
-
-  if (!active?.profile || !active.onboardingComplete) {
-    return <Navigate to="/onboarding" state={{ from: location.pathname }} replace />
-  }
-  return <>{children}</>
+function isPublicRoute(pathname: string): boolean {
+  return (
+    pathname === '/' ||
+    pathname === PROFILES_PATH ||
+    pathname === '/onboarding' ||
+    pathname === '/learn' ||
+    pathname.startsWith('/learn/')
+  )
 }
 
 /**
- * Routes that must work without a profile.
+ * Where this URL should send the user, or null if it can render as-is.
  *
- * The landing page is the entry point for someone who has never used FORM, and
- * the knowledge centre is reference material — neither is personalised, so
- * neither should sit behind a profile picker. Only the app routes need a
- * profile, and those are already guarded individually by <RequireProfile>.
+ * Every guard lives here rather than wrapped around individual routes, for one
+ * specific reason: a redirect that fires *after* the shell has started recording
+ * navigation leaves a bogus entry in the Back button's history. Deep-link to
+ * /grocery with no profile and you get sent to /profiles; had /grocery been
+ * recorded first, Back on the picker would return to /grocery, which would
+ * redirect straight back to the picker. Forever.
  */
-function isPublicRoute(pathname: string): boolean {
-  return pathname === '/' || pathname === '/learn' || pathname.startsWith('/learn/')
+function redirectFor(pathname: string, active: LocalProfile | null): string | null {
+  if (isPublicRoute(pathname)) return null
+  // Nothing chosen yet: the picker is the only sensible destination.
+  if (!active) return PROFILES_PATH
+  // A profile exists but has no plan, so there is nothing here to show.
+  if (!active.onboardingComplete) return '/onboarding'
+  return null
 }
 
 function Shell() {
   const location = useLocation()
-  const { profiles, activeProfileId } = useAppState()
   const active = useProfile()
   useScrollToTop(location.pathname)
 
+  const redirect = redirectFor(location.pathname, active)
+  if (redirect) {
+    // `replace`, so Back does not walk straight back into the route that
+    // bounced the user out.
+    return <Navigate to={redirect} replace />
+  }
+
+  return <ShellContent pathname={location.pathname} />
+}
+
+/**
+ * The shell, for routes already known to be valid.
+ *
+ * Split out from <Shell> so `useRecordVisit` is never reached for a path that
+ * is about to be redirected away from.
+ */
+function ShellContent({ pathname }: { pathname: string }) {
   /*
     Record every route for the Back button's benefit. A hook rather than an
-    effect in BackButton, because it has to run on routes that do not render one
-    — the landing page and the wizard — or the stack would have a hole in it
-    exactly where people are most likely to arrive from.
+    effect inside BackButton, because it has to run on routes that render no
+    Back button at all — the landing page and the picker — or the stack would
+    have a hole exactly where people are most likely to arrive from.
   */
-  useRecordVisit(location.pathname)
+  useRecordVisit(pathname)
 
   /**
-   * After the first paint has settled, fetch every remaining chunk while the
-   * browser is idle. Navigation then costs a React render rather than a
-   * network round trip, which is the difference between "instant" and
-   * "did it even register?".
+   * Once the first paint has settled, fetch every remaining chunk while the
+   * browser is idle. Navigation then costs a React render rather than a network
+   * round trip, which is the difference between "instant" and "did it even
+   * register?".
    */
   useEffect(() => {
     const idle =
@@ -103,33 +130,9 @@ function Shell() {
     }
   }, [])
 
-  /**
-   * The picker is a screen rather than a route, so it replaces the whole
-   * shell. Which routes it replaces depends on whether a profile exists yet:
-   *
-   * - First visit, no profiles: a public route renders normally, so `/` is the
-   *   landing page and `/learn` is readable. Everything else shows the picker,
-   *   because there is nothing to show without a profile.
-   * - Profiles exist: the picker takes over `/` as well, which is what makes
-   *   the nav's "switch profile" control work. Public routes stay readable.
-   */
-  if (!activeProfileId && (profiles.length > 0 || !isPublicRoute(location.pathname))) {
-    return <ProfileGate />
-  }
-
-  const isLanding = location.pathname === '/'
-  const isOnboarding = location.pathname === '/onboarding'
-  const isPublic = isPublicRoute(location.pathname)
-
-  /**
-   * A brand-new profile has no plan yet. Without this, finishing the picker
-   * leaves the user stranded on whatever route the gate happened to be mounted
-   * at (usually `/`) with an empty dashboard. The knowledge centre stays
-   * reachable so onboarding is never a dead end.
-   */
-  if (active && !active.onboardingComplete && !isOnboarding && !isPublic) {
-    return <Navigate to="/onboarding" replace />
-  }
+  const isLanding = pathname === '/'
+  const isOnboarding = pathname === '/onboarding'
+  const isPicker = pathname === PROFILES_PATH
 
   return (
     <div className="flex min-h-dvh flex-col">
@@ -141,72 +144,31 @@ function Shell() {
           {/*
             The key goes on PageTransition itself. Keying an outer wrapper and
             letting PageTransition animate inside it meant two nested remounts
-            for one navigation, and the inner element's `initial` state could
-            be painted before the outer swap settled — which shows up as the
-            old page lingering under a blank one.
+            per navigation, and the inner element's `initial` state could be
+            painted before the outer swap settled — which shows up as the old
+            page lingering under a blank one.
           */}
-          <PageTransition key={location.pathname}>
+          <PageTransition key={pathname}>
             <Routes>
               <Route path="/" element={<LandingPage />} />
+              <Route path={PROFILES_PATH} element={<ProfileGate />} />
               <Route path="/onboarding" element={<Pages.onboarding />} />
               <Route path="/learn" element={<Pages.learn />} />
               {/* Knowledge-centre articles live under /learn/:slug */}
               <Route path="/learn/:slug" element={<Pages.learn />} />
-              <Route
-                path="/dashboard"
-                element={
-                  <RequireProfile>
-                    <Pages.dashboard />
-                  </RequireProfile>
-                }
-              />
-              <Route
-                path="/planner"
-                element={
-                  <RequireProfile>
-                    <Pages.planner />
-                  </RequireProfile>
-                }
-              />
-              <Route
-                path="/explore"
-                element={
-                  <RequireProfile>
-                    <Pages.explore />
-                  </RequireProfile>
-                }
-              />
-              <Route
-                path="/progress"
-                element={
-                  <RequireProfile>
-                    <Pages.progress />
-                  </RequireProfile>
-                }
-              />
-              <Route
-                path="/grocery"
-                element={
-                  <RequireProfile>
-                    <Pages.grocery />
-                  </RequireProfile>
-                }
-              />
-              <Route
-                path="/settings"
-                element={
-                  <RequireProfile>
-                    <Pages.settings />
-                  </RequireProfile>
-                }
-              />
+              <Route path="/dashboard" element={<Pages.dashboard />} />
+              <Route path="/planner" element={<Pages.planner />} />
+              <Route path="/explore" element={<Pages.explore />} />
+              <Route path="/progress" element={<Pages.progress />} />
+              <Route path="/grocery" element={<Pages.grocery />} />
+              <Route path="/settings" element={<Pages.settings />} />
               <Route path="*" element={<Pages.notFound />} />
             </Routes>
           </PageTransition>
         </Suspense>
       </main>
 
-      {!isOnboarding && <Footer />}
+      {!isOnboarding && !isPicker && <Footer />}
     </div>
   )
 }

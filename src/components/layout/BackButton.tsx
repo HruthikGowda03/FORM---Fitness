@@ -23,7 +23,21 @@ import { isBackDestination, logicalParent } from '@/lib/routes'
 import { usePreviousVisit } from '@/lib/nav-history'
 import { cn } from '@/lib/cn'
 
-export function BackButton({ className }: { className?: string }) {
+export function BackButton({
+  className,
+  forceFallback = false,
+}: {
+  className?: string
+  /**
+   * Ignore the visit stack and always use the route's logical parent.
+   *
+   * For screens that are *reached by* a redirect. If /grocery sends you to the
+   * picker and the picker then offered history back to /grocery, the click
+   * would land on /grocery, which redirects to the picker again — a loop with
+   * no way out.
+   */
+  forceFallback?: boolean
+}) {
   const location = useLocation()
   const navigate = useNavigate()
   const previous = usePreviousVisit(location.pathname)
@@ -44,7 +58,7 @@ export function BackButton({ className }: { className?: string }) {
     parent instead, which is the more useful answer. Looping is the failure mode
     worth preventing; matching the browser's literal history entry is not.
   */
-  const useHistory = previous !== null && isBackDestination(previous)
+  const useHistory = !forceFallback && previous !== null && isBackDestination(previous)
   const fallback = logicalParent(location.pathname)
   const target = useHistory ? previous : fallback
 

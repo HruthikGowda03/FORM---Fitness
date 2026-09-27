@@ -14,7 +14,7 @@
 
 import { beforeEach, describe, expect, it } from 'vitest'
 
-import { isBackDestination, logicalParent } from '@/lib/routes'
+import { isBackDestination, logicalParent, PROFILES_PATH } from '@/lib/routes'
 import { previousVisit, recordVisit, resetNavHistory } from '@/lib/nav-history'
 
 describe('logicalParent', () => {
@@ -60,6 +60,11 @@ describe('logicalParent', () => {
     expect(isBackDestination('/onboarding')).toBe(false)
     expect(isBackDestination('/dashboard')).toBe(true)
     expect(isBackDestination('/')).toBe(true)
+  })
+
+  it('sends the picker to the landing page', () => {
+    // Not to the app route that redirected there — that would loop.
+    expect(logicalParent(PROFILES_PATH)).toBe('/')
   })
 })
 

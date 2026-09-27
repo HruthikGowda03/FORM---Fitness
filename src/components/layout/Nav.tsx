@@ -1,13 +1,13 @@
 import { motion } from 'motion/react'
 import { Menu, Moon, Sun, UserRound, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { Link, NavLink, useLocation } from 'react-router-dom'
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
 
 import { BrandLockup } from '@/components/layout/Brand'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetClose, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { cn } from '@/lib/cn'
-import { preloadRoute } from '@/lib/routes'
+import { preloadRoute, PROFILES_PATH } from '@/lib/routes'
 import { useScrollLock } from '@/lib/hooks'
 import { EASE } from '@/lib/motion'
 import { useActions, useProfile } from '@/store/AppStore'
@@ -76,6 +76,7 @@ export function Nav() {
   const [menuOpen, setMenuOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
   const location = useLocation()
+  const navigate = useNavigate()
 
   useScrollLock(menuOpen)
 
@@ -189,10 +190,16 @@ export function Nav() {
                 onClick={closeProfile}
                 title="Switch profile"
               >
-                {/* `active.name` is the local profile's name; `profile.name`
-                    is the nickname inside the nutrition profile. Using the
-                    latter here is what made this read "Edit profile". */}
-                <Link to="/">{active.name || 'My profile'}</Link>
+                {/*
+                  `active.name` is the local profile's name; `profile.name` is
+                  the nickname inside the nutrition profile. Using the latter
+                  here is what made this read "Edit profile".
+
+                  Goes to the picker's own route, not `/`. The landing page is
+                  the landing page now, so navigating there would show marketing
+                  copy instead of the list of people.
+                */}
+                <Link to={PROFILES_PATH}>{active.name || 'My profile'}</Link>
               </Button>
             )}
 
@@ -256,7 +263,15 @@ export function Nav() {
           </ul>
 
           <div className="mt-auto flex flex-col gap-3 border-t border-line p-6">
-            <Button variant="secondary" block onClick={() => { closeProfile(); setMenuOpen(false) }}>
+            <Button
+              variant="secondary"
+              block
+              onClick={() => {
+                closeProfile()
+                setMenuOpen(false)
+                navigate(PROFILES_PATH)
+              }}
+            >
               <UserRound className="size-4" />
               Switch profile
             </Button>
